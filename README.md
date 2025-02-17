@@ -25,7 +25,7 @@ Consulta CHANGELOG.md para la lista de cambios de cada versión. *Recomendamos e
 El módulo cuenta con la siguiente estructura:
 
 ```bash
-cloudops-ref-repo-aws-rds-terraform/
+cloudops-ref-repo-aws-s3-terraform/
 └── sample/
     ├── data.tf
     ├── main.tf
@@ -129,12 +129,52 @@ module "s3" {
 
 | Variable       | Tipo                                                                                                                                                    | Descripción                                                                                                                                                                                               | Predeterminado | Obligatorio |
 |----------------|---------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------|-------------|
-| `s3_config`    | list(object({<br> &nbsp;&nbsp; application = string,<br> &nbsp;&nbsp; kms_key_id = string,<br> &nbsp;&nbsp; accessclass = string,<br> &nbsp;&nbsp; versioning = string,<br> &nbsp;&nbsp; lambda_notifications = list(object({<br> &nbsp;&nbsp;&nbsp;&nbsp; lambda_function_arn = string,<br> &nbsp;&nbsp;&nbsp;&nbsp; events = list(string),<br> &nbsp;&nbsp;&nbsp;&nbsp; filter_prefix = string,<br> &nbsp;&nbsp;&nbsp;&nbsp; filter_suffix = string<br> &nbsp;&nbsp;})),<br> &nbsp;&nbsp; statements = list(object({<br> &nbsp;&nbsp;&nbsp;&nbsp; sid = string,<br> &nbsp;&nbsp;&nbsp;&nbsp; actions = list(string),<br> &nbsp;&nbsp;&nbsp;&nbsp; effect = string,<br> &nbsp;&nbsp;&nbsp;&nbsp; type = string,<br> &nbsp;&nbsp;&nbsp;&nbsp; identifiers = list(string),<br> &nbsp;&nbsp;&nbsp;&nbsp; condition = list(object({<br> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; test = string,<br> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; variable = string,<br> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; values = list(string)<br> &nbsp;&nbsp;&nbsp;&nbsp;}))<br> &nbsp;&nbsp;})),<br> &nbsp;&nbsp; cors_rules = list(object({<br> &nbsp;&nbsp;&nbsp;&nbsp; allowed_headers = list(string),<br> &nbsp;&nbsp;&nbsp;&nbsp; allowed_methods = list(string),<br> &nbsp;&nbsp;&nbsp;&nbsp; allowed_origins = list(string),<br> &nbsp;&nbsp;&nbsp;&nbsp; expose_headers = list(string)<br> &nbsp;&nbsp;}))<br>})) | Lista de configuraciones para cada bucket de S3. Cada objeto define:<br> - Nombre de la aplicación.<br> - ID de la clave KMS para cifrado (opcional, si se deja vacío se usa la clave por defecto).<br> - Clase de acceso del bucket.<br> - Estado de versionado ("Enabled" o "Suspended").<br> - Configuración de notificaciones Lambda.<br> - Declaraciones de políticas (statements).<br> - Reglas CORS. | -              | Sí          |
 | `functionality`| string                                                                                                                                                  | Funcionalidad o propósito del bucket.                                                                                                                                                                    | -              | Sí          |
 | `client`       | string                                                                                                                                                  | Identificador del cliente.                                                                                                                                                                                | -              | Sí          |
 | `environment`  | string                                                                                                                                                  | Entorno en el que se desplegará el bucket (por ejemplo, `dev`, `QA`, `pdn`).                                                                                                                  | -              | Sí          |
 
 ---
+
+### `s3_config`
+
+**Tipo:** `list(object)`
+
+**Descripción:** Lista de configuraciones para cada bucket de S3.
+
+**Estructura del objeto:**
+
+```hcl
+object({
+  application      = string,
+  kms_key_id       = string,
+  accessclass      = string,
+  versioning       = string,
+  lambda_notifications = list(object({
+    lambda_function_arn = string,
+    events              = list(string),
+    filter_prefix       = string,
+    filter_suffix       = string
+  })),
+  statements = list(object({
+    sid          = string,
+    actions      = list(string),
+    effect       = string,
+    type         = string,
+    identifiers  = list(string),
+    condition    = list(object({
+        test     = string
+        variable = string
+        values   = list(string)
+      }))
+  }))
+    cors_rules = list(object({
+      allowed_headers = list(string)
+      allowed_methods = list(string)
+      allowed_origins = list(string)
+      expose_headers = list(string)
+    }))
+})
+```
 ### 📤 Outputs
 
 | Output      | Descripción                                                                                                                                                                                                                           |
