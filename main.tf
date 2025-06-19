@@ -1,4 +1,5 @@
 resource "aws_s3_bucket" "bucket" {
+  provider                         = aws.project
   for_each = { for item in var.s3_config :
     item.application => {
       "index" : index(var.s3_config, item)
@@ -14,6 +15,7 @@ resource "aws_s3_bucket" "bucket" {
 
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "encryption_bucket" {
+  provider                         = aws.project
   for_each = { for item in var.s3_config :
     item.application => {
       "index" : index(var.s3_config, item)
@@ -35,6 +37,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "encryption_bucket
 
 
 resource "aws_s3_bucket_ownership_controls" "general_ownership" {
+  provider                         = aws.project
   for_each = { for item in var.s3_config :
     item.application => {
       "index" : index(var.s3_config, item)
@@ -53,6 +56,7 @@ resource "aws_s3_bucket_ownership_controls" "general_ownership" {
 
 # # Recurso Public Acces Block
 resource "aws_s3_bucket_public_access_block" "general_public_access" {
+  provider                         = aws.project
   for_each = { for item in var.s3_config :
     item.application => {
       "index" : index(var.s3_config, item)
@@ -71,6 +75,7 @@ resource "aws_s3_bucket_public_access_block" "general_public_access" {
 
 # # Rescurso habilitando versionamiento.
 resource "aws_s3_bucket_versioning" "s3_general_versioning" {
+  provider                         = aws.project
   for_each = { for item in var.s3_config :
     item.application => {
       "index" : index(var.s3_config, item)
@@ -88,7 +93,7 @@ resource "aws_s3_bucket_versioning" "s3_general_versioning" {
 
 # Recurso politica S3
 resource "aws_s3_bucket_policy" "policy" {
-
+  provider                         = aws.project
   for_each = { for item in var.s3_config :
     item.application => {
       "index" : index(var.s3_config, item)
@@ -100,6 +105,7 @@ resource "aws_s3_bucket_policy" "policy" {
 
 
 data "aws_iam_policy_document" "dynamic_policy" {
+  provider                         = aws.project
   for_each = { for item in var.s3_config :
     item.application => {
       "index" : index(var.s3_config, item)
@@ -133,7 +139,7 @@ data "aws_iam_policy_document" "dynamic_policy" {
 
 
 resource "aws_lambda_permission" "s3_lambda_permission" {
-
+  provider                         = aws.project
   for_each = {
     for item in flatten([for s3 in var.s3_config : [for notification in s3.lambda_notifications : {
       "s3_index" : index(var.s3_config, s3)
@@ -150,6 +156,7 @@ resource "aws_lambda_permission" "s3_lambda_permission" {
 
 
 resource "aws_s3_bucket_notification" "bucket_notification" {
+  provider                         = aws.project
   for_each = {
     for item in flatten([for s3 in var.s3_config : [for notification in s3.lambda_notifications : {
       "s3_index" : index(var.s3_config, s3)
@@ -178,6 +185,7 @@ resource "aws_s3_bucket_notification" "bucket_notification" {
 
 
 resource "aws_s3_bucket_cors_configuration" "cors" {
+  provider                         = aws.project
   for_each = { for item in var.s3_config :
     item.application => {
       "index" : index(var.s3_config, item)
