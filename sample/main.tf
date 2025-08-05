@@ -1,47 +1,188 @@
-module "s3" {
-  source = "./module/s3"
+# ============================================================================
+# EJEMPLO FUNCIONAL DEL MÓDULO S3 BUCKETS CORE
+# ============================================================================
 
-  client            = var.client
-  functionality     = var.functionality
-  environment       = var.environment
-  s3_config = [
-  {
-    application = var.project
-    kms_key_id  = ""  # Cuando se deja vacio usa automaticamente la KMS aws/s3
-    accessclass = var.accessclass
-    versioning  = var.versioning
-    lambda_notifications = [
-      # {
-      #   lambda_function_arn = ""
-      #   events              = ["s3:ObjectCreated:*"]
-      #   filter_prefix       = "images/"
-      #   filter_suffix       = ".jpg"
-      # }
-    ]
-    statements = [
-      {
-        sid         = "AllowReadAccess"
-        actions     = ["s3:*"]
-        effect      = "Allow"
-        type        = "AWS"
-        identifiers = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"]
-        condition = [
-          {
-          test          = "StringLike"
-          variable      = "aws:RequestTag/project"
-          values        = ["hefesto"]
-          }
-        ]
-      }
-    ]
-    cors_rules = [
-      {
-        allowed_headers = ["*"]
-        allowed_methods = ["GET", "POST"]
-        allowed_origins = ["https://sample.com"]
-        expose_headers  = ["ETag"]
-      }
-    ]
+# ============================================================================
+# MÓDULO S3 BUCKETS CORE
+# ============================================================================
+
+module "s3_buckets_core" {
+  source = "../"
+  providers = {
+    aws.project = aws.principal
   }
-]
+   
+  # Variables obligatorias
+  client      = var.client
+  project     = var.project
+  environment = var.environment
+  
+  # Configuración de buckets
+  s3_buckets_config = {
+    # Bucket básico con configuración mínima
+    "uploads" = {
+      # Configuración básica
+      force_destroy = true # Solo para el ejemplo, en producción usar false
+      
+      # Cifrado básico AES256
+      encryption_enabled = true
+      encryption_type    = "AES256"
+      
+      # Versionado habilitado
+      versioning_enabled = true
+      
+      # Seguridad por defecto
+      block_public_access = true
+      force_ssl          = true
+      
+      # Tags específicos
+      additional_tags = {
+        purpose = "file-uploads"
+        tier    = "standard"
+      }
+    }
+    
+    # Bucket avanzado con todas las características
+    "backups" = {
+      # Configuración básica
+      force_destroy = true # Solo para el ejemplo
+      
+      # Cifrado KMS con clave por defecto
+      encryption_enabled = true
+      encryption_type    = "KMS"
+      kms_key_id        = data.aws_kms_alias.s3.target_key_arn
+      bucket_key_enabled = true
+      
+      # Versionado con MFA Delete
+      versioning_enabled = true
+      mfa_delete_enabled = false # Cambiar a true en producción si se requiere
+      
+      # Object Lock para compliance
+      object_lock_enabled = true
+      object_lock_configuration = {
+        mode  = "GOVERNANCE"
+        years = 1
+      }
+      
+      # Seguridad estricta
+      block_public_access = true
+      force_ssl          = true
+      
+      # Lifecycle para backups (optimizado para retención a largo plazo)
+      lifecycle_rules = [
+        {
+          id     = "backup-lifecycle"
+          status = "Enabled"
+          
+          # Transiciones optimizadas para backups
+          transition_ia_days         = 30   # Backups antiguos a IA después de 30 días
+          transition_glacier_days    = 90   # Archivado a Glacier después de 90 días
+          transition_deep_archive_days = 365 # Deep Archive después de 1 año
+          
+          # Gestión de versiones no actuales
+          noncurrent_version_transition_ia_days = 30
+          noncurrent_version_transition_glacier_days = 90
+          noncurrent_version_expiration_days = 2555 # 7 años de retención
+          
+          # Abortar uploads incompletos
+          abort_incomplete_multipart_upload_days = 7
+        }
+      ]
+      
+      # Ownership estricto
+      object_ownership = "BucketOwnerEnforced"
+      
+      # Tags específicos
+      additional_tags = {
+        purpose    = "backups"
+        tier       = "critical"
+        compliance = "required"
+        retention  = "7-years"
+      }
+    }
+    
+    # Bucket para logs de acceso
+    "logs" = {
+      # Configuración básica
+      force_destroy = true # Solo para el ejemplo
+      
+      # Cifrado básico para logs
+      encryption_enabled = true
+      encryption_type    = "AES256"
+      
+      # Sin versionado para logs (optimización de costos)
+      versioning_enabled = false
+      
+      # Seguridad por defecto
+      block_public_access = true
+      force_ssl          = true
+      
+      # Ownership para logs
+      object_ownership = "BucketOwnerPreferred"
+      
+      # Tags específicos
+      additional_tags = {
+        purpose = "access-logs"
+        tier    = "logs"
+      }
+    }
+    
+    # Bucket para contenido web con CloudFront
+    "web-content" = {
+      # Configuración básica
+      force_destroy = true # Solo para el ejemplo
+      
+      # Cifrado con KMS usando clave existente
+      encryption_enabled = true
+      # encryption_type    = "KMS"
+      # kms_key_id        = data.aws_kms_key.web_content.arn
+      encryption_enabled = true
+      encryption_type    = "AES256"
+
+      bucket_key_enabled = true
+      
+      # Versionado habilitado para contenido web
+      versioning_enabled = true
+      mfa_delete_enabled = false
+      
+      # Seguridad estricta - privado por defecto
+      block_public_access = true
+      force_ssl          = true
+      
+      # Política específica para CloudFront Origin Access Control (OAC)
+      policy_statements = [
+        {
+          sid    = "AllowCloudFrontServicePrincipal"
+          effect = "Allow"
+          actions = [
+            "s3:GetObject"
+          ]
+          
+          principals = {
+            type        = "Service"
+            identifiers = ["cloudfront.amazonaws.com"]
+          }
+          
+          condition = [
+            {
+              test     = "StringEquals"
+              variable = "AWS:SourceArn"
+              values   = ["arn:aws:cloudfront::${data.aws_caller_identity.current.account_id}:distribution/*"]
+            }
+          ]
+        }
+      ]
+      
+      # Ownership estricto para contenido web
+      object_ownership = "BucketOwnerEnforced"
+      
+      # Tags específicos para contenido web
+      additional_tags = {
+        purpose     = "web-content"
+        tier        = "production"
+        cloudfront  = "enabled"
+        content_type = "static-web"
+      }
+    }
+  }
 }

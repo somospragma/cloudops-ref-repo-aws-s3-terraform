@@ -1,198 +1,503 @@
-# **🚀 Módulo Terraform para s3: cloudops-ref-repo-aws-s3-terraform**
+# Módulo Terraform: S3 Buckets CORE
 
-## Descripción:
+## Descripción
+Módulo Terraform CORE para la creación y gestión de múltiples buckets S3 con funcionalidades empresariales. Diseñado para proporcionar una base sólida y reutilizable para el almacenamiento en S3 con todas las características de seguridad, compliance y optimización de costos necesarias para entornos empresariales.
 
-Este módulo de Terraform permite la creación y configuración de buckets de S3 en AWS con funcionalidades como:
-
-- **Cifrado del lado del servidor:** Configurado mediante AWS KMS.
-- **Controles de propiedad:** Establece la propiedad de objetos en el bucket.
-- **Bloqueo de acceso público:** Impide accesos públicos no deseados.
-- **Versionado:** Habilita o suspende el versionado de objetos.
-- **Políticas personalizadas:** Aplica políticas al bucket mediante `aws_s3_bucket_policy`.
-- **Notificaciones a funciones Lambda:** Permite configurar notificaciones de eventos de S3 para invocar funciones Lambda.
-- **Configuración CORS:** Define reglas CORS para permitir solicitudes desde orígenes específicos.
-
-Requiere previamente haber creado:
-
-- **kms_key_id:** kms_key_id (En caso de que se desee encriptar con ese metodo).
-- **lambda_function_arn:** ARN de la lambda (En caso de que se desee utilizar la lambda para enviar notificaciones).
-
-
-Consulta CHANGELOG.md para la lista de cambios de cada versión. *Recomendamos encarecidamente que en tu código fijes la versión exacta que estás utilizando para que tu infraestructura permanezca estable y actualices las versiones de manera sistemática para evitar sorpresas.*
-
-## Estructura del Módulo
-
-El módulo cuenta con la siguiente estructura:
-
-```bash
-cloudops-ref-repo-aws-s3-terraform/
-└── sample/
-    ├── data.tf
-    ├── main.tf
-    ├── outputs.tf
-    ├── providers.tf
-    ├── terraform.auto.tfvars
-    └── variables.tf
-├── CHANGELOG.md
-├── README.md
-├── main.tf
-├── outputs.tf
-├── variables.tf
+## Diagrama de Arquitectura
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    S3 Buckets CORE Module                      │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐             │
+│  │   Bucket 1  │  │   Bucket 2  │  │   Bucket N  │             │
+│  │             │  │             │  │             │             │
+│  │ ┌─────────┐ │  │ ┌─────────┐ │  │ ┌─────────┐ │             │
+│  │ │Encryption│ │  │ │Encryption│ │  │ │Encryption│ │             │
+│  │ │AES256/KMS│ │  │ │AES256/KMS│ │  │ │AES256/KMS│ │             │
+│  │ └─────────┘ │  │ └─────────┘ │  │ └─────────┘ │             │
+│  │             │  │             │  │             │             │
+│  │ ┌─────────┐ │  │ ┌─────────┐ │  │ ┌─────────┐ │             │
+│  │ │Versioning│ │  │ │Versioning│ │  │ │Versioning│ │             │
+│  │ │+ MFA Del │ │  │ │+ MFA Del │ │  │ │+ MFA Del │ │             │
+│  │ └─────────┘ │  │ └─────────┘ │  │ └─────────┘ │             │
+│  │             │  │             │  │             │             │
+│  │ ┌─────────┐ │  │ ┌─────────┐ │  │ ┌─────────┐ │             │
+│  │ │Public   │ │  │ │Public   │ │  │ │Public   │ │             │
+│  │ │Access   │ │  │ │Access   │ │  │ │Access   │ │             │
+│  │ │Block    │ │  │ │Block    │ │  │ │Block    │ │             │
+│  │ └─────────┘ │  │ └─────────┘ │  │ └─────────┘ │             │
+│  └─────────────┘  └─────────────┘  └─────────────┘             │
+│                                                                 │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │              Advanced Features (Optional)               │   │
+│  │                                                         │   │
+│  │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐       │   │
+│  │  │Object Lock  │ │Intelligent  │ │Transfer     │       │   │
+│  │  │(WORM)       │ │Tiering      │ │Acceleration │       │   │
+│  │  └─────────────┘ └─────────────┘ └─────────────┘       │   │
+│  │                                                         │   │
+│  │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐       │   │
+│  │  │Lifecycle    │ │Access       │ │Dynamic      │       │   │
+│  │  │Management   │ │Logging      │ │Policies     │       │   │
+│  │  └─────────────┘ └─────────────┘ └─────────────┘       │   │
+│  └─────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-- Los archivos principales del módulo (`main.tf`, `outputs.tf`, `variables.tf`) se encuentran en el directorio raíz.
-- `CHANGELOG.md` y `README.md` también están en el directorio raíz para fácil acceso.
-- La carpeta `sample/` contiene un ejemplo de implementación del módulo.
+## Características
+- ✅ **Múltiples buckets S3** con naming automático y consistente
+- ✅ **Cifrado configurable** (AES256/KMS/DSSE-KMS) con validaciones obligatorias
+- ✅ **Versionado granular** con soporte para MFA Delete opcional
+- ✅ **Public Access Block** configurable (habilitado por defecto por seguridad)
+- ✅ **Políticas dinámicas** con force SSL automático y políticas personalizadas
+- ✅ **Lifecycle Management** básico con transiciones IA/Glacier/Deep Archive
+- ✅ **Access Logging** configurable con prefijos personalizados
+- ✅ **Transfer Acceleration** opcional para uploads grandes
+- ✅ **Ownership Controls** configurables (BucketOwnerEnforced/BucketOwnerPreferred/ObjectWriter)
+- ✅ **Object Lock** (WORM compliance) opcional con modos GOVERNANCE/COMPLIANCE
+- ✅ **Intelligent Tiering** automático opcional con configuración avanzada
+- ✅ **Bucket Key optimization** para reducir costos de KMS
+- ✅ **Tags obligatorios** y additional_tags personalizables por bucket
+- ✅ **Validaciones de seguridad** obligatorias para prevenir configuraciones inseguras
 
+## Estructura del Módulo
+```
+terraform-aws-s3-buckets-core/
+├── .gitignore               # Archivos a ignorar
+├── CHANGELOG.md             # Historial de cambios
+├── README.md                # Documentación principal
+├── data.tf                  # Recursos de datos
+├── locals.tf                # Variables locales y transformaciones
+├── main.tf                  # Recursos principales
+├── outputs.tf               # Salidas del módulo
+├── providers.tf             # Configuración de providers
+├── variables.tf             # Variables de entrada
+└── sample/                  # Directorio ejemplo
+    ├── README.md            # Documentación ejemplo
+    ├── data.tf              # Datos del ejemplo
+    ├── main.tf              # Configuración ejemplo
+    ├── outputs.tf           # Salidas ejemplo
+    ├── providers.tf         # Providers ejemplo
+    ├── variables.tf         # Variables ejemplo
+    └── terraform.tfvars.sample # Variables ejemplo
+```
 
-## Uso del Módulo:
+## Implementación y Configuración
 
+### Requisitos Técnicos
+| Requisito | Versión |
+|-----------|---------|
+| Terraform | >= 1.0 |
+| AWS Provider | >= 5.0 |
+
+### Configuración del Provider
 ```hcl
-module "s3" {
-  source = "./module/s3"
+provider "aws" {
+  region = "us-east-1"
+  
+  default_tags {
+    tags = {
+      environment = var.environment
+      project     = var.project
+      owner       = "cloudops"
+      client      = var.client
+      area        = "infrastructure"
+      provisioned = "terraform"
+      datatype    = "operational"
+    }
+  }
+}
+```
 
-  client            = "xxxx"
-  functionality     = "xxxx"
-  environment       = "xxxx"
-  s3_config = [
-  {
-    application = "xxxx"
-    kms_key_id  = "xxxx"  # Cuando se deja vacio usa automaticamente la KMS aws/s3
-    accessclass = "xxxx"
-    versioning  = "xxxx"
-    lambda_notifications = [
-      # {
-      #   lambda_function_arn = "xxxx"
-      #   events              = ["xxxx"]
-      #   filter_prefix       = "xxxx"
-      #   filter_suffix       = "xxxx"
-      # }
-    ]
-    statements = [
+### Convenciones de Nomenclatura
+```
+{client}-{project}-{environment}-s3-{identifier}
+```
+
+**Ejemplos:**
+- `pragma-webapp-dev-s3-uploads`
+- `pragma-api-prod-s3-backups`
+- `pragma-logs-staging-s3-access-logs`
+
+## Parámetros de Entrada
+
+### Variables Obligatorias
+| Nombre | Descripción | Tipo | Requerido | Validación |
+|--------|-------------|------|-----------|------------|
+| client | Nombre del cliente | string | ✅ | Alfanumérico, 3-20 chars |
+| project | Nombre del proyecto | string | ✅ | Alfanumérico, 3-30 chars |
+| environment | Entorno (dev/staging/prod) | string | ✅ | Valores permitidos |
+
+### Variables de Configuración
+| Nombre | Descripción | Tipo | Requerido | Default |
+|--------|-------------|------|-----------|---------|
+| s3_buckets_config | Configuración de buckets S3 | map(object()) | ✅ | - |
+
+## Estructura de Configuración
+
+### Configuración Principal
+```hcl
+s3_buckets_config = {
+  "bucket-key" = {
+    # Configuración básica
+    force_destroy = false
+    
+    # Cifrado (OBLIGATORIO por seguridad)
+    encryption_enabled = true
+    encryption_type    = "AES256"  # AES256, KMS, DSSE-KMS
+    kms_key_id        = null       # Requerido para KMS/DSSE-KMS
+    bucket_key_enabled = true      # Optimización de costos KMS
+    
+    # Versionado
+    versioning_enabled = true
+    mfa_delete_enabled = false
+    
+    # Seguridad (OBLIGATORIO)
+    block_public_access = true
+    force_ssl          = true
+    
+    # Políticas personalizadas
+    policy_statements = [
       {
-        sid         = "AllowReadAccess"
-        actions     = ["s3:*"]
-        effect      = "Allow"
-        type        = "AWS"
-        identifiers = ["xxxx"]
+        sid    = "CustomPolicy"
+        effect = "Allow"
+        actions = ["s3:GetObject"]
+        
+        principals = {
+          type        = "AWS"
+          identifiers = ["arn:aws:iam::123456789012:root"]
+        }
+        
         condition = [
           {
-          test          = "StringLike"
-          variable      = "aws:RequestTag/project"
-          values        = ["xxxx"]
+            test     = "StringEquals"
+            variable = "s3:x-amz-server-side-encryption"
+            values   = ["AES256"]
           }
         ]
       }
     ]
-    cors_rules = [
+    
+    # Lifecycle Management
+    lifecycle_rules = [
       {
-        allowed_headers = ["*"]
-        allowed_methods = ["GET", "POST"]
-        allowed_origins = ["xxxx"]
-        expose_headers  = ["ETag"]
+        id     = "lifecycle-rule"
+        status = "Enabled"
+        
+        # Filtros
+        prefix = "documents/"
+        tags   = { "tier" = "standard" }
+        
+        # Transiciones
+        transition_ia_days          = 30
+        transition_glacier_days     = 90
+        transition_deep_archive_days = 180
+        
+        # Expiración
+        expiration_days = 2555  # 7 años
+        
+        # Versiones no actuales
+        noncurrent_version_transition_ia_days      = 30
+        noncurrent_version_transition_glacier_days = 60
+        noncurrent_version_expiration_days         = 365
+        
+        # Multipart uploads
+        abort_incomplete_multipart_upload_days = 7
       }
     ]
+    
+    # Access Logging
+    enable_logging = true
+    log_bucket     = "my-log-bucket"
+    log_prefix     = "access-logs/"
+    
+    # Transfer Acceleration
+    transfer_acceleration_enabled = false
+    
+    # Ownership Controls
+    object_ownership = "BucketOwnerEnforced"
+    
+    # Object Lock (WORM compliance)
+    object_lock_enabled = false
+    object_lock_configuration = {
+      mode  = "GOVERNANCE"  # GOVERNANCE, COMPLIANCE
+      days  = 30
+      years = null
+    }
+    
+    # Intelligent Tiering
+    intelligent_tiering_enabled = false
+    intelligent_tiering_config = {
+      name   = "intelligent-tiering"
+      status = "Enabled"
+      prefix = ""
+      tags   = {}
+      
+      # Campos opcionales para análisis
+      optional_fields = ["BucketKeyStatus", "EncryptionStatus"]
+      
+      # Tiers avanzados
+      deep_archive_access_tier = false
+      archive_access_tier     = false
+    }
+    
+    # Etiquetas adicionales específicas
+    additional_tags = {
+      purpose = "document-storage"
+      tier    = "standard"
+    }
   }
-]
-}
 }
 ```
-## Requirements
 
-| Name | Version |
-|------|---------|
-| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 0.13.1 |
-| <a name="requirement_aws"></a> [aws](#requirement\_aws) | >= 4.31.0 |
+## Valores de Salida
+| Nombre | Descripción | Tipo |
+|--------|-------------|------|
+| bucket_ids | IDs de buckets creados | map(string) |
+| bucket_arns | ARNs de buckets creados | map(string) |
+| bucket_names | Nombres completos de buckets | map(string) |
+| bucket_domain_names | Nombres de dominio de buckets | map(string) |
+| bucket_regional_domain_names | Nombres de dominio regionales | map(string) |
+| encryption_configuration | Configuración de cifrado | map(object) |
+| versioning_status | Estado de versionado | map(string) |
+| public_access_block_status | Estado de bloqueo público | map(object) |
+| ownership_controls | Controles de propiedad | map(string) |
+| buckets_with_object_lock | Buckets con Object Lock | map(string) |
+| buckets_with_intelligent_tiering | Buckets con Intelligent Tiering | map(string) |
+| buckets_with_acceleration | Buckets con Transfer Acceleration | map(string) |
+| buckets_with_logging | Buckets con Access Logging | map(object) |
+| module_summary | Resumen de configuración | object |
+| account_id | ID de cuenta AWS | string |
+| region | Región AWS | string |
 
-## Providers
+## Ejemplos de Uso
 
-| Name | Version |
-|------|---------|
-| <a name="provider_aws.project"></a> [aws.project](#provider\_aws) | >= 4.31.0 |
-
-## Resources
-
-| Name | Type |
-|------|------|
-| [aws_s3_bucket.bucket](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket) | resource |
-| [aws_s3_bucket_server_side_encryption_configuration.encryption_bucket](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_server_side_encryption_configuration) | resource |
-| [aws_s3_bucket_ownership_controls.general_ownership](https://registry.terraform.io/providers/-/aws/latest/docs/resources/s3_bucket_ownership_controls) | resource |
-| [aws_s3_bucket_public_access_block.general_public_access](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_public_access_block) | resource |
-| [aws_s3_bucket_versioning.s3_general_versioning](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_versioning) | resource |
-| [aws_s3_bucket_policy.policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_policy) | resource |
-| [aws_lambda_permission.s3_lambda_permission](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lambda_permission) | resource |
-| [aws_s3_bucket_notification.bucket_notification](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_notification) | resource |
-| [aws_s3_bucket_cors_configuration.cors](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_cors_configuration) | resource |
-
-
-## 📌 Variables
-
-| Variable       | Tipo                                                                                                                                                    | Descripción                                                                                                                                                                                               | Predeterminado | Obligatorio |
-|----------------|---------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------|-------------|
-| `functionality`| string                                                                                                                                                  | Funcionalidad o propósito del bucket.                                                                                                                                                                    | -              | Sí          |
-| `client`       | string                                                                                                                                                  | Identificador del cliente.                                                                                                                                                                                | -              | Sí          |
-| `environment`  | string                                                                                                                                                  | Entorno en el que se desplegará el bucket (por ejemplo, `dev`, `QA`, `pdn`).                                                                                                                  | -              | Sí          |
-
----
-
-### `s3_config`
-
-**Tipo:** `list(object)`
-
-**Descripción:** Lista de configuraciones para cada bucket de S3.
-
-**Estructura del objeto:**
-
+### Ejemplo Básico
 ```hcl
-object({
-  application      = string,
-  kms_key_id       = string,
-  accessclass      = string,
-  versioning       = string,
-  lambda_notifications = list(object({
-    lambda_function_arn = string,
-    events              = list(string),
-    filter_prefix       = string,
-    filter_suffix       = string
-  })),
-  statements = list(object({
-    sid          = string,
-    actions      = list(string),
-    effect       = string,
-    type         = string,
-    identifiers  = list(string),
-    condition    = list(object({
-        test     = string
-        variable = string
-        values   = list(string)
-      }))
-  }))
-    cors_rules = list(object({
-      allowed_headers = list(string)
-      allowed_methods = list(string)
-      allowed_origins = list(string)
-      expose_headers = list(string)
-    }))
-})
-```
-### 📤 Outputs
-
-| Output      | Descripción                                                                                                                                                                                                                           |
-|-------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `s3_info`   | Objeto que mapea cada aplicación (tomada de `s3_config`) a la siguiente información del bucket S3 creado:<br> - **s3_arn:** ARN del bucket.<br> - **s3_id:** ID del bucket.<br> - **s3_domain_name:** Dominio regional del bucket.<br> - **s3_name:** Nombre asignado (según las etiquetas). |
-
-El bloque de output se define de la siguiente forma:
-
-```hcl
-output "s3_info" {
-   value = {
-     for s3 in aws_s3_bucket.bucket :
-     s3.tags_all.application => {
-       "s3_arn"          : s3.arn,
-       "s3_id"           : s3.id,
-       "s3_domain_name"  : s3.bucket_regional_domain_name,
-       "s3_name"         : s3.tags_all.Name
-     }
-   }
+module "s3_buckets_core" {
+  source = "git::https://github.com/somospragma/terraform-aws-s3-buckets-core.git?ref=v1.0.0"
+  
+  client      = "pragma"
+  project     = "webapp"
+  environment = "dev"
+  
+  s3_buckets_config = {
+    "uploads" = {
+      # Configuración mínima con seguridad por defecto
+      encryption_enabled = true
+      encryption_type    = "AES256"
+      versioning_enabled = true
+      
+      # Lifecycle básico
+      lifecycle_rules = [
+        {
+          id     = "basic-lifecycle"
+          status = "Enabled"
+          
+          transition_ia_days = 30
+          abort_incomplete_multipart_upload_days = 7
+        }
+      ]
+      
+      additional_tags = {
+        purpose = "user-uploads"
+      }
+    }
+  }
+  
+  providers = {
+    aws.project = aws.project
+  }
 }
+```
 
+### Ejemplo Avanzado
+```hcl
+module "s3_buckets_core" {
+  source = "git::https://github.com/somospragma/terraform-aws-s3-buckets-core.git?ref=v1.0.0"
+  
+  client      = "pragma"
+  project     = "webapp"
+  environment = "prod"
+  
+  s3_buckets_config = {
+    # Bucket para uploads con características básicas
+    "uploads" = {
+      encryption_type    = "AES256"
+      versioning_enabled = true
+      
+      lifecycle_rules = [
+        {
+          id     = "uploads-lifecycle"
+          status = "Enabled"
+          
+          transition_ia_days = 30
+          transition_glacier_days = 90
+          
+          noncurrent_version_expiration_days = 365
+          abort_incomplete_multipart_upload_days = 7
+        }
+      ]
+      
+      additional_tags = {
+        purpose = "user-uploads"
+        tier    = "standard"
+      }
+    }
+    
+    # Bucket para backups con todas las características
+    "backups" = {
+      # Cifrado avanzado con KMS
+      encryption_type    = "KMS"
+      kms_key_id        = "arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012"
+      bucket_key_enabled = true
+      
+      # Versionado con protección
+      versioning_enabled = true
+      
+      # Object Lock para compliance
+      object_lock_enabled = true
+      object_lock_configuration = {
+        mode = "GOVERNANCE"
+        days = 30
+      }
+      
+      # Intelligent Tiering para optimización automática
+      intelligent_tiering_enabled = true
+      intelligent_tiering_config = {
+        name   = "backup-tiering"
+        status = "Enabled"
+        prefix = "backups/"
+        
+        deep_archive_access_tier = true
+        archive_access_tier     = true
+        
+        optional_fields = ["BucketKeyStatus", "EncryptionStatus"]
+      }
+      
+      # Transfer Acceleration para uploads grandes
+      transfer_acceleration_enabled = true
+      
+      # Lifecycle completo
+      lifecycle_rules = [
+        {
+          id     = "comprehensive-lifecycle"
+          status = "Enabled"
+          
+          prefix = "backups/"
+          
+          transition_ia_days          = 30
+          transition_glacier_days     = 90
+          transition_deep_archive_days = 180
+          
+          noncurrent_version_transition_ia_days      = 30
+          noncurrent_version_transition_glacier_days = 60
+          noncurrent_version_expiration_days         = 2555  # 7 años
+          
+          abort_incomplete_multipart_upload_days = 1
+        }
+      ]
+      
+      # Políticas personalizadas
+      policy_statements = [
+        {
+          sid    = "AllowCloudTrailAccess"
+          effect = "Allow"
+          actions = [
+            "s3:PutObject",
+            "s3:GetBucketAcl"
+          ]
+          
+          principals = {
+            type        = "Service"
+            identifiers = ["cloudtrail.amazonaws.com"]
+          }
+          
+          condition = [
+            {
+              test     = "StringEquals"
+              variable = "s3:x-amz-acl"
+              values   = ["bucket-owner-full-control"]
+            }
+          ]
+        }
+      ]
+      
+      additional_tags = {
+        purpose    = "backup-storage"
+        tier       = "premium"
+        compliance = "required"
+        retention  = "7-years"
+      }
+    }
+    
+    # Bucket para logs con configuración específica
+    "logs" = {
+      encryption_type    = "AES256"
+      versioning_enabled = false  # Los logs no necesitan versionado
+      
+      lifecycle_rules = [
+        {
+          id     = "log-retention"
+          status = "Enabled"
+          
+          transition_ia_days = 7   # Transición rápida para logs
+          expiration_days    = 90  # Retención de 90 días
+          
+          abort_incomplete_multipart_upload_days = 1
+        }
+      ]
+      
+      object_ownership = "BucketOwnerPreferred"  # Para logs de servicios
+      
+      additional_tags = {
+        purpose = "access-logs"
+        tier    = "logs"
+      }
+    }
+  }
+  
+  providers = {
+    aws.project = aws.project
+  }
+}
+```
+
+## Consideraciones de Seguridad
+- ✅ **Cifrado habilitado por defecto** para todos los buckets
+- ✅ **Acceso público bloqueado por defecto** para prevenir exposición accidental
+- ✅ **Conexiones SSL/TLS obligatorias** mediante políticas automáticas
+- ✅ **Políticas de menor privilegio** aplicadas por defecto
+- ✅ **Validaciones de configuración** para prevenir configuraciones inseguras
+- ✅ **Logging y auditoría** configurables para compliance
+- ✅ **Object Lock** disponible para requisitos WORM
+- ✅ **Versionado** para recuperación y auditoría
+- ✅ **Tags obligatorios** para governance y seguimiento
+
+## Optimización de Costos
+- **Bucket Key optimization**: Reduce costos de KMS hasta 99%
+- **Intelligent Tiering**: Optimización automática de costos de almacenamiento
+- **Lifecycle Management**: Transiciones automáticas a clases de almacenamiento más económicas
+- **Abort incomplete multipart uploads**: Previene costos por uploads abandonados
+- **Transfer Acceleration**: Solo habilitar cuando sea necesario (tiene costos adicionales)
+
+## Compliance y Governance
+- **Object Lock (WORM)**: Para requisitos de retención inmutable
+- **Versionado**: Para auditoría y recuperación de datos
+- **Access Logging**: Para compliance y auditoría de acceso
+- **Tags obligatorios**: Para governance y seguimiento de costos
+- **Políticas dinámicas**: Para control de acceso granular
+
+## Contribución
+Este módulo sigue las convenciones de Pragma CloudOps. Para contribuir:
+1. Fork del repositorio
+2. Crear rama feature/
+3. Seguir las reglas de commit conventional
+4. Abrir Pull Request
+
+## Licencia
+Proprietary - Pragma S.A.S.
+
+## Soporte
+Para soporte técnico, contactar al equipo CloudOps de Pragma.

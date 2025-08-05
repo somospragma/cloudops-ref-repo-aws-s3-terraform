@@ -1,24 +1,25 @@
-######################################################################
-# Provider AWS
-######################################################################
-provider "aws" {
-  region  = var.aws_region
-  profile = var.profile
+# ============================================================================
+# CONFIGURACIÓN DE PROVIDERS PARA EL EJEMPLO
+# ============================================================================
 
-  default_tags {
-    tags = var.common_tags
-  }
-}
-
-######################################################################
-# Definicion de versiones - Terraform - Provaiders
-######################################################################
 terraform {
-  required_version = ">= 0.13.1"
+  required_version = ">= 1.10.0"
+  
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = ">=4.31.0"
+      version = ">= 5.0"
     }
+  }
+}
+
+# Provider principal con default_tags (OBLIGATORIO según reglas)
+provider "aws" {
+  region = "us-east-1"
+  alias = "principal"
+  profile = var.profile
+  # Sistema de etiquetado de 2 niveles - NIVEL 1: Etiquetas transversales
+  default_tags {
+    tags = var.common_tags
   }
 }
