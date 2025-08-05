@@ -1,0 +1,191 @@
+# ============================================================================
+# VARIABLES DE EJEMPLO PARA EL MÓDULO S3 BUCKETS CORE
+# ============================================================================
+
+# Variables obligatorias
+client      = "pragma"
+project     = "webapp"
+environment = "dev"
+
+# ============================================================================
+# CONFIGURACIÓN DE EJEMPLO
+# ============================================================================
+# 
+# Este archivo muestra ejemplos de configuración para diferentes tipos de buckets.
+# Copia este archivo a terraform.tfvars y modifica según tus necesidades.
+#
+# IMPORTANTE: 
+# - Todos los buckets tendrán cifrado habilitado por defecto
+# - El acceso público estará bloqueado por defecto por seguridad
+# - Los nombres se generan automáticamente: {client}-{project}-{environment}-s3-{key}
+#
+# ============================================================================
+
+# Ejemplo de configuración básica (descomenta para usar)
+# s3_buckets_config = {
+#   "uploads" = {
+#     force_destroy = true  # Solo para desarrollo/testing
+#     
+#     # Cifrado básico
+#     encryption_enabled = true
+#     encryption_type    = "AES256"
+#     
+#     # Versionado
+#     versioning_enabled = true
+#     
+#     # Lifecycle básico
+#     lifecycle_rules = [
+#       {
+#         id     = "basic-lifecycle"
+#         status = "Enabled"
+#         
+#         transition_ia_days     = 30
+#         transition_glacier_days = 90
+#         
+#         abort_incomplete_multipart_upload_days = 7
+#       }
+#     ]
+#     
+#     additional_tags = {
+#       purpose = "file-uploads"
+#     }
+#   }
+# }
+
+# Ejemplo de configuración avanzada (descomenta para usar)
+# s3_buckets_config = {
+#   "backups" = {
+#     force_destroy = false  # Protección en producción
+#     
+#     # Cifrado con KMS
+#     encryption_enabled = true
+#     encryption_type    = "KMS"
+#     # kms_key_id        = "arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012"
+#     bucket_key_enabled = true
+#     
+#     # Versionado con protección
+#     versioning_enabled = true
+#     
+#     # Object Lock para compliance
+#     object_lock_enabled = true
+#     object_lock_configuration = {
+#       mode = "GOVERNANCE"
+#       days = 30
+#     }
+#     
+#     # Intelligent Tiering
+#     intelligent_tiering_enabled = true
+#     intelligent_tiering_config = {
+#       name   = "backup-tiering"
+#       status = "Enabled"
+#       
+#       deep_archive_access_tier = true
+#       archive_access_tier     = true
+#     }
+#     
+#     # Transfer Acceleration
+#     transfer_acceleration_enabled = true
+#     
+#     # Lifecycle avanzado
+#     lifecycle_rules = [
+#       {
+#         id     = "comprehensive-lifecycle"
+#         status = "Enabled"
+#         
+#         prefix = "backups/"
+#         
+#         transition_ia_days          = 30
+#         transition_glacier_days     = 90
+#         transition_deep_archive_days = 180
+#         
+#         noncurrent_version_transition_ia_days      = 30
+#         noncurrent_version_transition_glacier_days = 60
+#         noncurrent_version_expiration_days         = 2555  # 7 años
+#         
+#         abort_incomplete_multipart_upload_days = 1
+#       }
+#     ]
+#     
+#     additional_tags = {
+#       purpose    = "backup-storage"
+#       compliance = "required"
+#       retention  = "7-years"
+#     }
+#   }
+# }
+
+# Ejemplo de múltiples buckets (descomenta para usar)
+# s3_buckets_config = {
+#   "uploads" = {
+#     encryption_type    = "AES256"
+#     versioning_enabled = true
+#     
+#     lifecycle_rules = [
+#       {
+#         id     = "uploads-lifecycle"
+#         status = "Enabled"
+#         transition_ia_days = 30
+#         abort_incomplete_multipart_upload_days = 7
+#       }
+#     ]
+#     
+#     additional_tags = {
+#       purpose = "user-uploads"
+#     }
+#   }
+#   
+#   "logs" = {
+#     encryption_type    = "AES256"
+#     versioning_enabled = false
+#     
+#     lifecycle_rules = [
+#       {
+#         id     = "log-retention"
+#         status = "Enabled"
+#         transition_ia_days = 7
+#         expiration_days    = 90
+#         abort_incomplete_multipart_upload_days = 1
+#       }
+#     ]
+#     
+#     additional_tags = {
+#       purpose = "access-logs"
+#     }
+#   }
+#   
+#   "backups" = {
+#     encryption_type    = "KMS"
+#     versioning_enabled = true
+#     
+#     object_lock_enabled = true
+#     object_lock_configuration = {
+#       mode = "GOVERNANCE"
+#       days = 30
+#     }
+#     
+#     intelligent_tiering_enabled = true
+#     intelligent_tiering_config = {
+#       name = "backup-tiering"
+#       deep_archive_access_tier = true
+#     }
+#     
+#     lifecycle_rules = [
+#       {
+#         id     = "backup-lifecycle"
+#         status = "Enabled"
+#         
+#         transition_ia_days          = 30
+#         transition_glacier_days     = 90
+#         transition_deep_archive_days = 180
+#         
+#         noncurrent_version_expiration_days = 2555
+#         abort_incomplete_multipart_upload_days = 1
+#       }
+#     ]
+#     
+#     additional_tags = {
+#       purpose    = "backup-storage"
+#       compliance = "required"
+#     }
+#   }
+# }
