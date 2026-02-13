@@ -184,5 +184,60 @@ module "s3_buckets_core" {
         content_type = "static-web"
       }
     }
+    
+    # Bucket con Lambda notifications para procesamiento automático
+    "media" = {
+      # Configuración básica
+      force_destroy = true # Solo para el ejemplo
+      
+      # Cifrado básico
+      encryption_enabled = true
+      encryption_type    = "AES256"
+      
+      # Versionado habilitado
+      versioning_enabled = true
+      
+      # Seguridad por defecto
+      block_public_access = true
+      force_ssl          = true
+      
+      # Lambda notifications para procesamiento automático
+      # NOTA: Requiere aws_lambda_permission configurado previamente
+      lambda_notifications = [
+        # {
+        #   id                  = "image-processor"
+        #   lambda_function_arn = "arn:aws:lambda:us-east-1:123456789012:function:process-images"
+        #   events              = ["s3:ObjectCreated:*"]
+        #   filter_prefix       = "images/"
+        #   filter_suffix       = ".jpg"
+        # },
+        # {
+        #   id                  = "video-processor"
+        #   lambda_function_arn = "arn:aws:lambda:us-east-1:123456789012:function:process-videos"
+        #   events              = ["s3:ObjectCreated:Put"]
+        #   filter_prefix       = "videos/"
+        #   filter_suffix       = ".mp4"
+        # }
+      ]
+      
+      # Lifecycle para media
+      lifecycle_rules = [
+        {
+          id     = "media-lifecycle"
+          status = "Enabled"
+          
+          transition_ia_days = 30
+          transition_glacier_days = 90
+          
+          abort_incomplete_multipart_upload_days = 7
+        }
+      ]
+      
+      # Tags específicos
+      additional_tags = {
+        purpose = "media-processing"
+        tier    = "standard"
+      }
+    }
   }
 }

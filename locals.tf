@@ -44,6 +44,12 @@ locals {
     if length(v.lifecycle_rules) > 0
   }
   
+  # Filtro simple: Buckets con notificaciones Lambda
+  buckets_with_lambda_notifications = {
+    for k, v in var.s3_buckets_config : k => v
+    if length(v.lambda_notifications) > 0
+  }
+  
   # Mapeo directo: ARNs de buckets (se calculará después de crear los recursos)
   bucket_arns = {
     for k, v in aws_s3_bucket.this : k => v.arn

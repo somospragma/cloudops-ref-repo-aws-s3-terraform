@@ -301,3 +301,24 @@ resource "aws_s3_bucket_intelligent_tiering_configuration" "this" {
     }
   }
 }
+
+# ============================================================================
+# LAMBDA NOTIFICATIONS
+# ============================================================================
+
+resource "aws_s3_bucket_notification" "lambda" {
+  provider = aws.project
+  for_each = local.buckets_with_lambda_notifications
+  bucket   = aws_s3_bucket.this[each.key].id
+
+  dynamic "lambda_function" {
+    for_each = each.value.lambda_notifications
+    content {
+      id                  = lambda_function.value.id
+      lambda_function_arn = lambda_function.value.lambda_function_arn
+      events              = lambda_function.value.events
+      filter_prefix       = lambda_function.value.filter_prefix
+      filter_suffix       = lambda_function.value.filter_suffix
+    }
+  }
+}
