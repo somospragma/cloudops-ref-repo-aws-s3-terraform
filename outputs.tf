@@ -43,3 +43,22 @@ output "bucket_regions" {
   description = "Regiones donde están ubicados los buckets S3"
   value       = { for k, v in aws_s3_bucket.this : k => v.region }
 }
+
+# Lambda notifications
+output "buckets_with_lambda_notifications" {
+  description = "Buckets con notificaciones Lambda configuradas"
+  value = {
+    for k, v in local.buckets_with_lambda_notifications : k => {
+      bucket_name = aws_s3_bucket.this[k].id
+      notifications = [
+        for notif in v.lambda_notifications : {
+          id         = notif.id
+          lambda_arn = notif.lambda_function_arn
+          events     = notif.events
+          prefix     = notif.filter_prefix
+          suffix     = notif.filter_suffix
+        }
+      ]
+    }
+  }
+}

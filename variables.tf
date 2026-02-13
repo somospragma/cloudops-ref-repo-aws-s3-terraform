@@ -142,6 +142,15 @@ variable "s3_buckets_config" {
       archive_access_tier                      = optional(bool, false)
     }), null)
     
+    # Lambda Notifications
+    lambda_notifications = optional(list(object({
+      id                  = optional(string, null)
+      lambda_function_arn = string
+      events              = list(string)
+      filter_prefix       = optional(string, null)
+      filter_suffix       = optional(string, null)
+    })), [])
+    
     # Tags adicionales específicos del bucket
     additional_tags = optional(map(string), {})
   }))

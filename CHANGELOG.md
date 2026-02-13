@@ -7,6 +7,15 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 
 ## [Unreleased]
 
+### Added
+- Lambda Notifications para procesamiento automático de eventos S3
+- Soporte para múltiples triggers Lambda por bucket con filtros específicos
+- Configuración de eventos S3 (ObjectCreated, ObjectRemoved, etc.)
+- Filtros por prefijo y sufijo para notificaciones Lambda
+- Output `buckets_with_lambda_notifications` con detalles de configuración
+- Ejemplos de uso con Lambda notifications en README y samples
+- Documentación de requisitos de permisos Lambda (aws_lambda_permission)
+
 ## [1.0.0] - 2025-08-05
 
 ### Added
