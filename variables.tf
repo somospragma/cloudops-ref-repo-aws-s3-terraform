@@ -101,6 +101,7 @@ variable "s3_buckets_config" {
       
       # Expiración
       expiration_days = optional(number, null)
+      expired_object_delete_marker = optional(bool, null)
       
       # Versiones no actuales
       noncurrent_version_transition_ia_days          = optional(number, null)
@@ -209,5 +210,18 @@ variable "s3_buckets_config" {
       v.object_lock_configuration != null ? contains(["GOVERNANCE", "COMPLIANCE"], v.object_lock_configuration.mode) : true
     ])
     error_message = "Object lock mode debe ser: GOVERNANCE, COMPLIANCE."
+  }
+
+  validation {
+    condition = alltrue([
+      for k, v in var.s3_buckets_config : alltrue([
+        for rule in v.lifecycle_rules :
+        # Solo UNO de expiration_days o expired_object_delete_marker puede tener valor
+        # Ambos null es válido (no hay expiración)
+        # Ambos con valor es inválido
+        !(rule.expiration_days != null && rule.expired_object_delete_marker != null)
+      ])
+    ])
+    error_message = "En una regla de lifecycle, solo uno de expiration_days o expired_object_delete_marker puede tener valor (no ambos). Ambos pueden ser null."
   }
 }
