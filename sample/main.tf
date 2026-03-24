@@ -210,13 +210,27 @@ module "s3_buckets_core" {
         #   events              = ["s3:ObjectCreated:*"]
         #   filter_prefix       = "images/"
         #   filter_suffix       = ".jpg"
-        # },
+        # }
+      ]
+      
+      # SQS notifications para procesamiento asíncrono
+      # NOTA: Requiere SQS Queue Policy que permita s3:SendMessage
+      sqs_notifications = [
         # {
-        #   id                  = "video-processor"
-        #   lambda_function_arn = "arn:aws:lambda:us-east-1:123456789012:function:process-videos"
-        #   events              = ["s3:ObjectCreated:Put"]
-        #   filter_prefix       = "videos/"
-        #   filter_suffix       = ".mp4"
+        #   id            = "upload-queue"
+        #   queue_arn     = "arn:aws:sqs:us-east-1:123456789012:media-upload-queue"
+        #   events        = ["s3:ObjectCreated:*"]
+        #   filter_prefix = "uploads/"
+        # }
+      ]
+      
+      # SNS notifications para fan-out de eventos
+      # NOTA: Requiere SNS Topic Policy que permita s3:Publish
+      sns_notifications = [
+        # {
+        #   id            = "media-events"
+        #   topic_arn     = "arn:aws:sns:us-east-1:123456789012:media-events"
+        #   events        = ["s3:ObjectCreated:*", "s3:ObjectRemoved:*"]
         # }
       ]
       

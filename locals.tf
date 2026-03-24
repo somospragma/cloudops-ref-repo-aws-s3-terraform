@@ -44,10 +44,10 @@ locals {
     if length(v.lifecycle_rules) > 0
   }
   
-  # Filtro simple: Buckets con notificaciones Lambda
-  buckets_with_lambda_notifications = {
+  # Filtro simple: Buckets con cualquier tipo de notificación (Lambda, SQS, SNS)
+  buckets_with_notifications = {
     for k, v in var.s3_buckets_config : k => v
-    if length(v.lambda_notifications) > 0
+    if length(v.lambda_notifications) > 0 || length(v.sqs_notifications) > 0 || length(v.sns_notifications) > 0
   }
   
   # Mapeo directo: ARNs de buckets (se calculará después de crear los recursos)

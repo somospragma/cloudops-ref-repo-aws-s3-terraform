@@ -303,14 +303,15 @@ resource "aws_s3_bucket_intelligent_tiering_configuration" "this" {
 }
 
 # ============================================================================
-# LAMBDA NOTIFICATIONS
+# EVENT NOTIFICATIONS (Lambda, SQS, SNS)
 # ============================================================================
 
-resource "aws_s3_bucket_notification" "lambda" {
+resource "aws_s3_bucket_notification" "this" {
   provider = aws.project
-  for_each = local.buckets_with_lambda_notifications
+  for_each = local.buckets_with_notifications
   bucket   = aws_s3_bucket.this[each.key].id
 
+  # Lambda notifications
   dynamic "lambda_function" {
     for_each = each.value.lambda_notifications
     content {
@@ -319,6 +320,30 @@ resource "aws_s3_bucket_notification" "lambda" {
       events              = lambda_function.value.events
       filter_prefix       = lambda_function.value.filter_prefix
       filter_suffix       = lambda_function.value.filter_suffix
+    }
+  }
+
+  # SQS notifications
+  dynamic "queue" {
+    for_each = each.value.sqs_notifications
+    content {
+      id            = queue.value.id
+      queue_arn     = queue.value.queue_arn
+      events        = queue.value.events
+      filter_prefix = queue.value.filter_prefix
+      filter_suffix = queue.value.filter_suffix
+    }
+  }
+
+  # SNS notifications
+  dynamic "topic" {
+    for_each = each.value.sns_notifications
+    content {
+      id            = topic.value.id
+      topic_arn     = topic.value.topic_arn
+      events        = topic.value.events
+      filter_prefix = topic.value.filter_prefix
+      filter_suffix = topic.value.filter_suffix
     }
   }
 }
