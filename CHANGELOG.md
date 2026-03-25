@@ -8,13 +8,21 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 ## [Unreleased]
 
 ### Added
-- Lambda Notifications para procesamiento automático de eventos S3
-- Soporte para múltiples triggers Lambda por bucket con filtros específicos
-- Configuración de eventos S3 (ObjectCreated, ObjectRemoved, etc.)
-- Filtros por prefijo y sufijo para notificaciones Lambda
-- Output `buckets_with_lambda_notifications` con detalles de configuración
-- Ejemplos de uso con Lambda notifications en README y samples
-- Documentación de requisitos de permisos Lambda (aws_lambda_permission)
+- Soporte para notificaciones SQS (`sqs_notifications`) en eventos S3
+- Soporte para notificaciones SNS (`sns_notifications`) en eventos S3
+- Recurso unificado `aws_s3_bucket_notification.this` que combina Lambda, SQS y SNS
+- Output unificado `buckets_with_notifications` con detalles de los tres tipos
+- Ejemplos de uso con SQS y SNS en README y samples
+- Documentación de permisos requeridos para SQS (Queue Policy) y SNS (Topic Policy)
+- Notas sobre permisos KMS cuando SQS/SNS usan cifrado
+
+### Changed
+- Recurso `aws_s3_bucket_notification.lambda` renombrado a `aws_s3_bucket_notification.this`
+- Local `buckets_with_lambda_notifications` reemplazado por `buckets_with_notifications`
+- Sección de documentación "Lambda Notifications" ampliada a "Event Notifications"
+
+### Removed
+- Output `buckets_with_lambda_notifications` (reemplazado por `buckets_with_notifications`) — **BREAKING CHANGE**
 
 ## [1.0.0] - 2025-08-05
 

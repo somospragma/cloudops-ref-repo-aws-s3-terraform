@@ -41,6 +41,13 @@ Módulo Terraform CORE para la creación y gestión de múltiples buckets S3 con
 │  │  │Lifecycle    │ │Access       │ │Dynamic      │       │   │
 │  │  │Management   │ │Logging      │ │Policies     │       │   │
 │  │  └─────────────┘ └─────────────┘ └─────────────┘       │   │
+│  │                                                         │   │
+│  │  ┌─────────────────────────────────────────────────┐    │   │
+│  │  │         Event Notifications                     │    │   │
+│  │  │  ┌─────────┐  ┌─────────┐  ┌─────────┐         │    │   │
+│  │  │  │ Lambda  │  │  SQS    │  │  SNS    │         │    │   │
+│  │  │  └─────────┘  └─────────┘  └─────────┘         │    │   │
+│  │  └─────────────────────────────────────────────────┘    │   │
 │  └─────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -58,7 +65,7 @@ Módulo Terraform CORE para la creación y gestión de múltiples buckets S3 con
 - ✅ **Object Lock** (WORM compliance) opcional con modos GOVERNANCE/COMPLIANCE
 - ✅ **Intelligent Tiering** automático opcional con configuración avanzada
 - ✅ **Bucket Key optimization** para reducir costos de KMS
-- ✅ **Lambda Notifications** para procesamiento automático de eventos S3
+- ✅ **Event Notifications** (Lambda, SQS, SNS) para procesamiento automático de eventos S3
 - ✅ **Tags obligatorios** y additional_tags personalizables por bucket
 - ✅ **Validaciones de seguridad** obligatorias para prevenir configuraciones inseguras
 
@@ -254,6 +261,25 @@ s3_buckets_config = {
       }
     ]
     
+    # SQS Notifications
+    sqs_notifications = [
+      {
+        id            = "upload-queue"
+        queue_arn     = "arn:aws:sqs:us-east-1:123456789012:upload-processing-queue"
+        events        = ["s3:ObjectCreated:*"]
+        filter_prefix = "documents/"
+      }
+    ]
+    
+    # SNS Notifications
+    sns_notifications = [
+      {
+        id            = "upload-alerts"
+        topic_arn     = "arn:aws:sns:us-east-1:123456789012:s3-upload-alerts"
+        events        = ["s3:ObjectCreated:*", "s3:ObjectRemoved:*"]
+      }
+    ]
+    
     # Etiquetas adicionales específicas
     additional_tags = {
       purpose = "document-storage"
@@ -279,7 +305,7 @@ s3_buckets_config = {
 | buckets_with_intelligent_tiering | Buckets con Intelligent Tiering | map(string) |
 | buckets_with_acceleration | Buckets con Transfer Acceleration | map(string) |
 | buckets_with_logging | Buckets con Access Logging | map(object) |
-| buckets_with_lambda_notifications | Buckets con notificaciones Lambda | map(object) |
+| buckets_with_notifications | Buckets con notificaciones (Lambda, SQS, SNS) | map(object) |
 | module_summary | Resumen de configuración | object |
 | account_id | ID de cuenta AWS | string |
 | region | Región AWS | string |
@@ -506,16 +532,8 @@ resource "aws_lambda_permission" "allow_s3_image_processor" {
   source_arn    = "arn:aws:s3:::pragma-webapp-prod-s3-media"
 }
 
-resource "aws_lambda_permission" "allow_s3_video_processor" {
-  statement_id  = "AllowS3InvokeVideoProcessor"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.video_processor.function_name
-  principal     = "s3.amazonaws.com"
-  source_arn    = "arn:aws:s3:::pragma-webapp-prod-s3-media"
-}
-
 module "s3_buckets_core" {
-  source = "git::https://github.com/somospragma/terraform-aws-s3-buckets-core.git?ref=v1.0.0"
+  source = "git::https://github.com/somospragma/terraform-aws-s3-buckets-core.git?ref=v1.1.0"
   
   client      = "pragma"
   project     = "webapp"
@@ -526,7 +544,6 @@ module "s3_buckets_core" {
       encryption_type    = "AES256"
       versioning_enabled = true
       
-      # Múltiples Lambda triggers con filtros específicos
       lambda_notifications = [
         {
           id                  = "image-processor"
@@ -534,18 +551,6 @@ module "s3_buckets_core" {
           events              = ["s3:ObjectCreated:*"]
           filter_prefix       = "images/"
           filter_suffix       = ".jpg"
-        },
-        {
-          id                  = "video-processor"
-          lambda_function_arn = aws_lambda_function.video_processor.arn
-          events              = ["s3:ObjectCreated:Put", "s3:ObjectCreated:Post"]
-          filter_prefix       = "videos/"
-          filter_suffix       = ".mp4"
-        },
-        {
-          id                  = "deletion-handler"
-          lambda_function_arn = aws_lambda_function.deletion_handler.arn
-          events              = ["s3:ObjectRemoved:*"]
         }
       ]
       
@@ -560,8 +565,101 @@ module "s3_buckets_core" {
   }
   
   depends_on = [
-    aws_lambda_permission.allow_s3_image_processor,
-    aws_lambda_permission.allow_s3_video_processor
+    aws_lambda_permission.allow_s3_image_processor
+  ]
+}
+```
+
+### Ejemplo con SQS y SNS Notifications
+```hcl
+# IMPORTANTE: Crear policies de SQS y SNS antes del módulo S3
+
+resource "aws_sqs_queue" "upload_processing" {
+  name = "upload-processing-queue"
+}
+
+resource "aws_sqs_queue_policy" "allow_s3" {
+  queue_url = aws_sqs_queue.upload_processing.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid       = "AllowS3SendMessage"
+      Effect    = "Allow"
+      Principal = { Service = "s3.amazonaws.com" }
+      Action    = "sqs:SendMessage"
+      Resource  = aws_sqs_queue.upload_processing.arn
+      Condition = {
+        ArnEquals = { "aws:SourceArn" = "arn:aws:s3:::pragma-webapp-prod-s3-events" }
+      }
+    }]
+  })
+}
+
+resource "aws_sns_topic" "s3_events" {
+  name = "s3-event-notifications"
+}
+
+resource "aws_sns_topic_policy" "allow_s3" {
+  arn = aws_sns_topic.s3_events.arn
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid       = "AllowS3Publish"
+      Effect    = "Allow"
+      Principal = { Service = "s3.amazonaws.com" }
+      Action    = "sns:Publish"
+      Resource  = aws_sns_topic.s3_events.arn
+      Condition = {
+        ArnEquals = { "aws:SourceArn" = "arn:aws:s3:::pragma-webapp-prod-s3-events" }
+      }
+    }]
+  })
+}
+
+module "s3_buckets_core" {
+  source = "git::https://github.com/somospragma/terraform-aws-s3-buckets-core.git?ref=v1.1.0"
+  
+  client      = "pragma"
+  project     = "webapp"
+  environment = "prod"
+  
+  s3_buckets_config = {
+    "events" = {
+      encryption_type    = "AES256"
+      versioning_enabled = true
+      
+      # SQS: procesamiento asíncrono de uploads
+      sqs_notifications = [
+        {
+          id            = "upload-queue"
+          queue_arn     = aws_sqs_queue.upload_processing.arn
+          events        = ["s3:ObjectCreated:*"]
+          filter_prefix = "uploads/"
+        }
+      ]
+      
+      # SNS: fan-out de eventos de eliminación
+      sns_notifications = [
+        {
+          id            = "deletion-alerts"
+          topic_arn     = aws_sns_topic.s3_events.arn
+          events        = ["s3:ObjectRemoved:*"]
+        }
+      ]
+      
+      additional_tags = {
+        purpose = "event-driven-processing"
+      }
+    }
+  }
+  
+  providers = {
+    aws.project = aws.project
+  }
+  
+  depends_on = [
+    aws_sqs_queue_policy.allow_s3,
+    aws_sns_topic_policy.allow_s3
   ]
 }
 ```
@@ -577,10 +675,17 @@ module "s3_buckets_core" {
 - ✅ **Versionado** para recuperación y auditoría
 - ✅ **Tags obligatorios** para governance y seguimiento
 
-## Lambda Notifications - Requisitos y Mejores Prácticas
+## Event Notifications - Requisitos y Mejores Prácticas
 
-### Requisitos Previos
-1. **Permisos Lambda**: Crear `aws_lambda_permission` ANTES del módulo S3:
+El módulo soporta tres tipos de notificaciones de eventos S3: Lambda, SQS y SNS. Se pueden combinar múltiples tipos en un mismo bucket.
+
+> **Importante:** S3 solo permite una configuración de notificaciones por bucket. El módulo unifica automáticamente los tres tipos en un solo recurso `aws_s3_bucket_notification`, por lo que pueden coexistir sin conflictos.
+
+### Permisos Requeridos
+
+Cada tipo de notificación requiere permisos específicos configurados ANTES de desplegar el módulo.
+
+#### Lambda — `aws_lambda_permission`
 ```hcl
 resource "aws_lambda_permission" "allow_s3" {
   statement_id  = "AllowS3Invoke"
@@ -591,7 +696,136 @@ resource "aws_lambda_permission" "allow_s3" {
 }
 ```
 
-2. **Función Lambda**: La función debe existir antes de configurar notificaciones
+#### SQS — Queue Policy
+La cola SQS debe tener una policy que permita a S3 enviar mensajes:
+```hcl
+resource "aws_sqs_queue_policy" "allow_s3" {
+  queue_url = aws_sqs_queue.processing.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid       = "AllowS3SendMessage"
+        Effect    = "Allow"
+        Principal = {
+          Service = "s3.amazonaws.com"
+        }
+        Action   = "sqs:SendMessage"
+        Resource = aws_sqs_queue.processing.arn
+        Condition = {
+          ArnEquals = {
+            "aws:SourceArn" = "arn:aws:s3:::bucket-name"
+          }
+        }
+      }
+    ]
+  })
+}
+```
+
+> **Nota:** Si la cola SQS usa cifrado con KMS, la clave KMS debe tener permisos para que el servicio S3 pueda generar data keys. Agregar a la key policy:
+> ```json
+> {
+>   "Sid": "AllowS3UseKey",
+>   "Effect": "Allow",
+>   "Principal": { "Service": "s3.amazonaws.com" },
+>   "Action": ["kms:GenerateDataKey", "kms:Decrypt"],
+>   "Resource": "*"
+> }
+> ```
+
+#### SNS — Topic Policy
+El topic SNS debe tener una policy que permita a S3 publicar mensajes:
+```hcl
+resource "aws_sns_topic_policy" "allow_s3" {
+  arn = aws_sns_topic.events.arn
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid       = "AllowS3Publish"
+        Effect    = "Allow"
+        Principal = {
+          Service = "s3.amazonaws.com"
+        }
+        Action   = "sns:Publish"
+        Resource = aws_sns_topic.events.arn
+        Condition = {
+          ArnEquals = {
+            "aws:SourceArn" = "arn:aws:s3:::bucket-name"
+          }
+        }
+      }
+    ]
+  })
+}
+```
+
+> **Nota:** Si el topic SNS usa cifrado con KMS, la clave KMS debe permitir al servicio S3 generar data keys, de forma análoga al caso de SQS.
+
+### Ejemplo Combinado (Lambda + SQS + SNS)
+```hcl
+module "s3_buckets_core" {
+  source = "git::https://github.com/somospragma/terraform-aws-s3-buckets-core.git?ref=v1.1.0"
+  
+  client      = "pragma"
+  project     = "webapp"
+  environment = "prod"
+  
+  s3_buckets_config = {
+    "media" = {
+      encryption_type    = "AES256"
+      versioning_enabled = true
+      
+      # Lambda: procesamiento síncrono de imágenes
+      lambda_notifications = [
+        {
+          id                  = "image-processor"
+          lambda_function_arn = aws_lambda_function.image_processor.arn
+          events              = ["s3:ObjectCreated:*"]
+          filter_prefix       = "images/"
+          filter_suffix       = ".jpg"
+        }
+      ]
+      
+      # SQS: cola de procesamiento asíncrono
+      sqs_notifications = [
+        {
+          id            = "video-queue"
+          queue_arn     = aws_sqs_queue.video_processing.arn
+          events        = ["s3:ObjectCreated:*"]
+          filter_prefix = "videos/"
+        }
+      ]
+      
+      # SNS: fan-out de eventos de eliminación
+      sns_notifications = [
+        {
+          id            = "deletion-alerts"
+          topic_arn     = aws_sns_topic.deletion_alerts.arn
+          events        = ["s3:ObjectRemoved:*"]
+        }
+      ]
+      
+      additional_tags = {
+        purpose = "media-processing"
+      }
+    }
+  }
+  
+  providers = {
+    aws.project = aws.project
+  }
+  
+  depends_on = [
+    aws_lambda_permission.allow_s3_image_processor,
+    aws_sqs_queue_policy.allow_s3,
+    aws_sns_topic_policy.allow_s3
+  ]
+}
+```
 
 ### Eventos Soportados
 - `s3:ObjectCreated:*` - Cualquier creación de objeto
@@ -605,17 +839,18 @@ resource "aws_lambda_permission" "allow_s3" {
 - `s3:Replication:*` - Eventos de replicación
 
 ### Mejores Prácticas
-1. **Evitar loops**: No escribir al mismo bucket/prefix que dispara la función
-2. **Filtros específicos**: Usar `filter_prefix` y `filter_suffix` para reducir invocaciones
-3. **Idempotencia**: Diseñar funciones Lambda para manejar eventos duplicados
-4. **Timeouts**: Configurar timeouts apropiados en Lambda
-5. **Dead Letter Queue**: Configurar DLQ para manejar fallos
-6. **Monitoreo**: Usar CloudWatch para monitorear invocaciones y errores
+1. **Evitar loops**: No escribir al mismo bucket/prefix que dispara la notificación
+2. **Filtros específicos**: Usar `filter_prefix` y `filter_suffix` para reducir invocaciones innecesarias
+3. **Sin solapamiento de filtros**: Los filtros de prefix/suffix no pueden solaparse entre notificaciones del mismo tipo de evento
+4. **Idempotencia**: Diseñar consumidores para manejar eventos duplicados (S3 garantiza at-least-once delivery)
+5. **Dead Letter Queue**: Configurar DLQ en SQS y redrive policy para manejar fallos
+6. **Monitoreo**: Usar CloudWatch para monitorear invocaciones, mensajes en cola y errores
+7. **Permisos con SourceArn**: Siempre usar `Condition` con `aws:SourceArn` en las policies de SQS/SNS para restringir el acceso al bucket específico
 
 ### Limitaciones
 - Un bucket solo puede tener una configuración de notificaciones (pero múltiples triggers dentro)
-- Los filtros de prefix/suffix no pueden solaparse entre notificaciones
-- Máximo de eventos por segundo según límites de Lambda
+- Los filtros de prefix/suffix no pueden solaparse entre notificaciones del mismo evento
+- Sujeto a los límites de invocación de Lambda, throughput de SQS y publish rate de SNS
 
 ## Optimización de Costos
 - **Bucket Key optimization**: Reduce costos de KMS hasta 99%
