@@ -44,19 +44,37 @@ output "bucket_regions" {
   value       = { for k, v in aws_s3_bucket.this : k => v.region }
 }
 
-# Lambda notifications
-output "buckets_with_lambda_notifications" {
-  description = "Buckets con notificaciones Lambda configuradas"
+# Event notifications (Lambda, SQS, SNS)
+output "buckets_with_notifications" {
+  description = "Buckets con notificaciones configuradas (Lambda, SQS, SNS)"
   value = {
-    for k, v in local.buckets_with_lambda_notifications : k => {
+    for k, v in local.buckets_with_notifications : k => {
       bucket_name = aws_s3_bucket.this[k].id
-      notifications = [
-        for notif in v.lambda_notifications : {
-          id         = notif.id
-          lambda_arn = notif.lambda_function_arn
-          events     = notif.events
-          prefix     = notif.filter_prefix
-          suffix     = notif.filter_suffix
+      lambda_notifications = [
+        for n in v.lambda_notifications : {
+          id         = n.id
+          lambda_arn = n.lambda_function_arn
+          events     = n.events
+          prefix     = n.filter_prefix
+          suffix     = n.filter_suffix
+        }
+      ]
+      sqs_notifications = [
+        for n in v.sqs_notifications : {
+          id        = n.id
+          queue_arn = n.queue_arn
+          events    = n.events
+          prefix    = n.filter_prefix
+          suffix    = n.filter_suffix
+        }
+      ]
+      sns_notifications = [
+        for n in v.sns_notifications : {
+          id        = n.id
+          topic_arn = n.topic_arn
+          events    = n.events
+          prefix    = n.filter_prefix
+          suffix    = n.filter_suffix
         }
       ]
     }

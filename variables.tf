@@ -151,6 +151,24 @@ variable "s3_buckets_config" {
       filter_suffix       = optional(string, null)
     })), [])
     
+    # SQS Notifications
+    sqs_notifications = optional(list(object({
+      id            = optional(string, null)
+      queue_arn     = string
+      events        = list(string)
+      filter_prefix = optional(string, null)
+      filter_suffix = optional(string, null)
+    })), [])
+    
+    # SNS Notifications
+    sns_notifications = optional(list(object({
+      id            = optional(string, null)
+      topic_arn     = string
+      events        = list(string)
+      filter_prefix = optional(string, null)
+      filter_suffix = optional(string, null)
+    })), [])
+    
     # Tags adicionales específicos del bucket
     additional_tags = optional(map(string), {})
   }))
