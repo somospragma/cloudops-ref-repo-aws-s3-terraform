@@ -176,9 +176,10 @@ resource "aws_s3_bucket_lifecycle_configuration" "this" {
 
       # Expiración de versión actual
       dynamic "expiration" {
-        for_each = rule.value.expiration_days != null ? [1] : []
+        for_each = rule.value.expiration_days != null || rule.value.expired_object_delete_marker == true ? [1] : []
         content {
           days = rule.value.expiration_days
+          expired_object_delete_marker = rule.value.expired_object_delete_marker
         }
       }
 
