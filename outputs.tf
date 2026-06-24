@@ -46,10 +46,11 @@ output "bucket_regions" {
 
 # Event notifications (Lambda, SQS, SNS)
 output "buckets_with_notifications" {
-  description = "Buckets con notificaciones configuradas (Lambda, SQS, SNS)"
+  description = "Buckets con notificaciones configuradas (Lambda, SQS, SNS, EventBridge)"
   value = {
     for k, v in local.buckets_with_notifications : k => {
-      bucket_name = aws_s3_bucket.this[k].id
+      bucket_name         = aws_s3_bucket.this[k].id
+      eventbridge_enabled = v.eventbridge_enabled
       lambda_notifications = [
         for n in v.lambda_notifications : {
           id         = n.id

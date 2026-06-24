@@ -44,9 +44,9 @@ Módulo Terraform CORE para la creación y gestión de múltiples buckets S3 con
 │  │                                                         │   │
 │  │  ┌─────────────────────────────────────────────────┐    │   │
 │  │  │         Event Notifications                     │    │   │
-│  │  │  ┌─────────┐  ┌─────────┐  ┌─────────┐         │    │   │
-│  │  │  │ Lambda  │  │  SQS    │  │  SNS    │         │    │   │
-│  │  │  └─────────┘  └─────────┘  └─────────┘         │    │   │
+│  │  │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌──────────┐│    │   │
+│  │  │  │ Lambda  │  │  SQS    │  │  SNS    │  │EventBridge││    │   │
+│  │  │  └─────────┘  └─────────┘  └─────────┘  └──────────┘│    │   │
 │  │  └─────────────────────────────────────────────────┘    │   │
 │  └─────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────┘
@@ -65,7 +65,7 @@ Módulo Terraform CORE para la creación y gestión de múltiples buckets S3 con
 - ✅ **Object Lock** (WORM compliance) opcional con modos GOVERNANCE/COMPLIANCE
 - ✅ **Intelligent Tiering** automático opcional con configuración avanzada
 - ✅ **Bucket Key optimization** para reducir costos de KMS
-- ✅ **Event Notifications** (Lambda, SQS, SNS) para procesamiento automático de eventos S3
+- ✅ **Event Notifications** (Lambda, SQS, SNS, EventBridge) para procesamiento automático de eventos S3
 - ✅ **Tags obligatorios** y additional_tags personalizables por bucket
 - ✅ **Validaciones de seguridad** obligatorias para prevenir configuraciones inseguras
 
@@ -280,6 +280,9 @@ s3_buckets_config = {
       }
     ]
     
+    # EventBridge Notifications
+    eventbridge_enabled = false  # Habilita envío de TODOS los eventos S3 a EventBridge
+    
     # Etiquetas adicionales específicas
     additional_tags = {
       purpose = "document-storage"
@@ -305,7 +308,7 @@ s3_buckets_config = {
 | buckets_with_intelligent_tiering | Buckets con Intelligent Tiering | map(string) |
 | buckets_with_acceleration | Buckets con Transfer Acceleration | map(string) |
 | buckets_with_logging | Buckets con Access Logging | map(object) |
-| buckets_with_notifications | Buckets con notificaciones (Lambda, SQS, SNS) | map(object) |
+| buckets_with_notifications | Buckets con notificaciones (Lambda, SQS, SNS, EventBridge) | map(object) |
 | module_summary | Resumen de configuración | object |
 | account_id | ID de cuenta AWS | string |
 | region | Región AWS | string |
@@ -664,6 +667,60 @@ module "s3_buckets_core" {
 }
 ```
 
+### Ejemplo con EventBridge Notifications
+```hcl
+# EventBridge no requiere permisos adicionales en el bucket.
+# Solo necesitas crear reglas en EventBridge que capturen los eventos.
+
+module "s3_buckets_core" {
+  source = "git::https://github.com/somospragma/terraform-aws-s3-buckets-core.git?ref=v1.1.0"
+  
+  client      = "pragma"
+  project     = "webapp"
+  environment = "prod"
+  
+  s3_buckets_config = {
+    "data-lake" = {
+      encryption_type    = "KMS"
+      kms_key_id        = "arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012"
+      versioning_enabled = true
+      
+      # Habilitar EventBridge — TODOS los eventos S3 se envían automáticamente
+      eventbridge_enabled = true
+      
+      additional_tags = {
+        purpose = "data-lake-ingestion"
+      }
+    }
+  }
+  
+  providers = {
+    aws.project = aws.project
+  }
+}
+
+# Ejemplo de regla EventBridge para capturar eventos del bucket
+resource "aws_cloudwatch_event_rule" "s3_object_created" {
+  name        = "s3-data-lake-object-created"
+  description = "Captura creación de objetos en el bucket data-lake"
+
+  event_pattern = jsonencode({
+    source      = ["aws.s3"]
+    detail-type = ["Object Created"]
+    detail = {
+      bucket = {
+        name = [module.s3_buckets_core.bucket_names["data-lake"]]
+      }
+    }
+  })
+}
+
+resource "aws_cloudwatch_event_target" "invoke_lambda" {
+  rule = aws_cloudwatch_event_rule.s3_object_created.name
+  arn  = aws_lambda_function.data_processor.arn
+}
+```
+
 ## Consideraciones de Seguridad
 - ✅ **Cifrado habilitado por defecto** para todos los buckets
 - ✅ **Acceso público bloqueado por defecto** para prevenir exposición accidental
@@ -677,9 +734,9 @@ module "s3_buckets_core" {
 
 ## Event Notifications - Requisitos y Mejores Prácticas
 
-El módulo soporta tres tipos de notificaciones de eventos S3: Lambda, SQS y SNS. Se pueden combinar múltiples tipos en un mismo bucket.
+El módulo soporta cuatro tipos de notificaciones de eventos S3: Lambda, SQS, SNS y EventBridge. Se pueden combinar múltiples tipos en un mismo bucket.
 
-> **Importante:** S3 solo permite una configuración de notificaciones por bucket. El módulo unifica automáticamente los tres tipos en un solo recurso `aws_s3_bucket_notification`, por lo que pueden coexistir sin conflictos.
+> **Importante:** S3 solo permite una configuración de notificaciones por bucket. El módulo unifica automáticamente los cuatro tipos en un solo recurso `aws_s3_bucket_notification`, por lo que pueden coexistir sin conflictos.
 
 ### Permisos Requeridos
 
@@ -765,7 +822,33 @@ resource "aws_sns_topic_policy" "allow_s3" {
 
 > **Nota:** Si el topic SNS usa cifrado con KMS, la clave KMS debe permitir al servicio S3 generar data keys, de forma análoga al caso de SQS.
 
-### Ejemplo Combinado (Lambda + SQS + SNS)
+#### EventBridge — Sin permisos adicionales
+
+EventBridge **no requiere configuración de permisos** en el lado del bucket. Al habilitar `eventbridge_enabled = true`, S3 envía automáticamente **todos** los eventos al bus de eventos por defecto de EventBridge en la misma cuenta y región.
+
+```hcl
+# Solo se necesita habilitar en la configuración del bucket:
+eventbridge_enabled = true
+```
+
+**Ventajas de EventBridge sobre Lambda/SQS/SNS directos:**
+- Recibe **todos** los tipos de eventos S3 sin necesidad de especificar filtros
+- Soporta filtrado avanzado por content-based filtering en las reglas de EventBridge
+- Permite enrutar a múltiples targets (Lambda, SQS, SNS, Step Functions, API Gateway, etc.)
+- Soporta archive & replay de eventos
+- Integración nativa con más de 20 servicios AWS como targets
+- No tiene las limitaciones de prefix/suffix overlapping de las notificaciones S3 tradicionales
+
+**Cuándo usar EventBridge vs Lambda/SQS/SNS directo:**
+| Criterio | EventBridge | Lambda/SQS/SNS directo |
+|----------|-------------|------------------------|
+| Múltiples consumidores | ✅ Fan-out nativo | Requiere SNS + suscripciones |
+| Filtrado avanzado | ✅ Content-based filtering | Solo prefix/suffix |
+| Replay de eventos | ✅ Archive & replay | No disponible |
+| Latencia mínima | ~1s adicional | Más directo |
+| Control de prefix/suffix | Via reglas EventBridge | Nativo en notificación |
+
+### Ejemplo Combinado (Lambda + SQS + SNS + EventBridge)
 ```hcl
 module "s3_buckets_core" {
   source = "git::https://github.com/somospragma/terraform-aws-s3-buckets-core.git?ref=v1.1.0"
@@ -809,6 +892,9 @@ module "s3_buckets_core" {
         }
       ]
       
+      # EventBridge: enviar todos los eventos al bus por defecto
+      eventbridge_enabled = true
+      
       additional_tags = {
         purpose = "media-processing"
       }
@@ -851,6 +937,8 @@ module "s3_buckets_core" {
 - Un bucket solo puede tener una configuración de notificaciones (pero múltiples triggers dentro)
 - Los filtros de prefix/suffix no pueden solaparse entre notificaciones del mismo evento
 - Sujeto a los límites de invocación de Lambda, throughput de SQS y publish rate de SNS
+- EventBridge: envía TODOS los eventos del bucket (no se pueden filtrar a nivel de S3, solo en las reglas de EventBridge)
+- EventBridge: introduce ~1 segundo adicional de latencia respecto a notificaciones directas
 
 ## Optimización de Costos
 - **Bucket Key optimization**: Reduce costos de KMS hasta 99%
