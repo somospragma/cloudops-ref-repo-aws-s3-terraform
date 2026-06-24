@@ -6,13 +6,13 @@
 resource "aws_s3_bucket" "this" {
   provider = aws.project
   for_each = var.s3_buckets_config
-  
+
   bucket        = local.resource_names[each.key]
   force_destroy = each.value.force_destroy
-  
+
   # Object Lock debe habilitarse en la creación del bucket
   object_lock_enabled = each.value.object_lock_enabled
-  
+
   tags = merge(
     {
       Name = local.resource_names[each.key]
@@ -64,7 +64,7 @@ resource "aws_s3_bucket_versioning" "this" {
   provider = aws.project
   for_each = var.s3_buckets_config
   bucket   = aws_s3_bucket.this[each.key].id
-  
+
   versioning_configuration {
     status     = each.value.versioning_enabled ? "Enabled" : "Suspended"
     mfa_delete = each.value.mfa_delete_enabled ? "Enabled" : "Disabled"
@@ -83,7 +83,7 @@ resource "aws_s3_bucket_ownership_controls" "this" {
   rule {
     object_ownership = each.value.object_ownership
   }
-  
+
   depends_on = [aws_s3_bucket_public_access_block.this]
 }
 
@@ -98,10 +98,10 @@ resource "aws_s3_bucket_policy" "force_ssl_only" {
     for k, v in var.s3_buckets_config : k => v
     if v.force_ssl == true && length(v.policy_statements) == 0
   }
-  
+
   bucket = aws_s3_bucket.this[each.key].id
   policy = data.aws_iam_policy_document.force_ssl[each.key].json
-  
+
   depends_on = [aws_s3_bucket_public_access_block.this]
 }
 
@@ -109,10 +109,10 @@ resource "aws_s3_bucket_policy" "force_ssl_only" {
 resource "aws_s3_bucket_policy" "combined" {
   provider = aws.project
   for_each = local.buckets_with_policies
-  
+
   bucket = aws_s3_bucket.this[each.key].id
   policy = data.aws_iam_policy_document.bucket_policy[each.key].json
-  
+
   depends_on = [aws_s3_bucket_public_access_block.this]
 }
 
@@ -141,12 +141,12 @@ resource "aws_s3_bucket_lifecycle_configuration" "this" {
             tags   = rule.value.tags
           }
         }
-        
+
         # Si solo hay prefix (o ningún filtro), usar prefix
         prefix = rule.value.prefix != "" && length(rule.value.tags) == 0 ? rule.value.prefix : (
           rule.value.prefix == "" && length(rule.value.tags) == 0 ? "" : null
         )
-        
+
         # Si solo hay tags, usarlos
         dynamic "tag" {
           for_each = rule.value.prefix == "" && length(rule.value.tags) > 0 ? rule.value.tags : {}
@@ -178,7 +178,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "this" {
       dynamic "expiration" {
         for_each = rule.value.expiration_days != null || rule.value.expired_object_delete_marker == true ? [1] : []
         content {
-          days = rule.value.expiration_days
+          days                         = rule.value.expiration_days
           expired_object_delete_marker = rule.value.expired_object_delete_marker
         }
       }
@@ -214,7 +214,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "this" {
       }
     }
   }
-  
+
   depends_on = [aws_s3_bucket_versioning.this]
 }
 
@@ -226,7 +226,7 @@ resource "aws_s3_bucket_logging" "this" {
   provider = aws.project
   for_each = local.buckets_with_logging
   bucket   = aws_s3_bucket.this[each.key].id
-  
+
   target_bucket = each.value.log_bucket
   target_prefix = "${each.value.log_prefix}${local.resource_names[each.key]}/"
 }
@@ -258,7 +258,7 @@ resource "aws_s3_bucket_object_lock_configuration" "this" {
       years = each.value.object_lock_configuration.years
     }
   }
-  
+
   depends_on = [aws_s3_bucket_versioning.this]
 }
 
@@ -311,6 +311,9 @@ resource "aws_s3_bucket_notification" "this" {
   provider = aws.project
   for_each = local.buckets_with_notifications
   bucket   = aws_s3_bucket.this[each.key].id
+
+  # EventBridge
+  eventbridge = each.value.eventbridge_enabled
 
   # Lambda notifications
   dynamic "lambda_function" {

@@ -10,16 +10,19 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 ### Added
 - Soporte para notificaciones SQS (`sqs_notifications`) en eventos S3
 - Soporte para notificaciones SNS (`sns_notifications`) en eventos S3
-- Recurso unificado `aws_s3_bucket_notification.this` que combina Lambda, SQS y SNS
-- Output unificado `buckets_with_notifications` con detalles de los tres tipos
-- Ejemplos de uso con SQS y SNS en README y samples
+- Soporte para notificaciones EventBridge (`eventbridge_enabled`) en eventos S3
+- Recurso unificado `aws_s3_bucket_notification.this` que combina Lambda, SQS, SNS y EventBridge
+- Output unificado `buckets_with_notifications` con detalles de los cuatro tipos
+- Ejemplos de uso con SQS, SNS y EventBridge en README y samples
 - Documentación de permisos requeridos para SQS (Queue Policy) y SNS (Topic Policy)
 - Notas sobre permisos KMS cuando SQS/SNS usan cifrado
+- Documentación de EventBridge: uso, ventajas y ejemplo con reglas EventBridge
 
 ### Changed
 - Recurso `aws_s3_bucket_notification.lambda` renombrado a `aws_s3_bucket_notification.this`
 - Local `buckets_with_lambda_notifications` reemplazado por `buckets_with_notifications`
 - Sección de documentación "Lambda Notifications" ampliada a "Event Notifications"
+- Filtro `buckets_with_notifications` incluye ahora buckets con EventBridge habilitado
 
 ### Removed
 - Output `buckets_with_lambda_notifications` (reemplazado por `buckets_with_notifications`) — **BREAKING CHANGE**

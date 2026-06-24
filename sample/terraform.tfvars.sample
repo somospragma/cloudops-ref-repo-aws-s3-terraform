@@ -195,10 +195,14 @@ environment = "dev"
 # - Lambda: Requiere aws_lambda_permission configurado previamente
 # - SQS: Requiere SQS Queue Policy que permita s3:SendMessage
 # - SNS: Requiere SNS Topic Policy que permita s3:Publish
+# - EventBridge: No requiere permisos adicionales
 # s3_buckets_config = {
 #   "media" = {
 #     encryption_type    = "AES256"
 #     versioning_enabled = true
+#     
+#     # EventBridge: enviar TODOS los eventos S3 al bus de EventBridge
+#     eventbridge_enabled = true
 #     
 #     # Lambda notifications para procesamiento automático
 #     lambda_notifications = [
@@ -246,6 +250,33 @@ environment = "dev"
 #     
 #     additional_tags = {
 #       purpose = "media-processing"
+#     }
+#   }
+# }
+
+# Ejemplo solo con EventBridge (descomenta para usar)
+# EventBridge no requiere permisos adicionales en el bucket.
+# Solo necesitas crear reglas en EventBridge para capturar los eventos.
+# s3_buckets_config = {
+#   "data-lake" = {
+#     encryption_type    = "AES256"
+#     versioning_enabled = true
+#     
+#     # Habilitar EventBridge — todos los eventos S3 se envían al bus por defecto
+#     eventbridge_enabled = true
+#     
+#     lifecycle_rules = [
+#       {
+#         id     = "data-lake-lifecycle"
+#         status = "Enabled"
+#         transition_ia_days = 30
+#         transition_glacier_days = 90
+#         abort_incomplete_multipart_upload_days = 7
+#       }
+#     ]
+#     
+#     additional_tags = {
+#       purpose = "data-lake-ingestion"
 #     }
 #   }
 # }
