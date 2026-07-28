@@ -143,6 +143,16 @@ variable "s3_buckets_config" {
       archive_access_tier      = optional(bool, false)
     }), null)
 
+    # CORS Configuration
+    cors_rules = optional(list(object({
+      id              = optional(string, null)
+      allowed_headers = optional(list(string), ["*"])
+      allowed_methods = list(string)
+      allowed_origins = list(string)
+      expose_headers  = optional(list(string), [])
+      max_age_seconds = optional(number, 3600)
+    })), [])
+
     # EventBridge Notifications
     eventbridge_enabled = optional(bool, false)
 
@@ -244,5 +254,17 @@ variable "s3_buckets_config" {
       ])
     ])
     error_message = "En una regla de lifecycle, solo uno de expiration_days o expired_object_delete_marker puede tener valor (no ambos). Ambos pueden ser null."
+  }
+
+  validation {
+    condition = alltrue([
+      for k, v in var.s3_buckets_config : alltrue([
+        for rule in v.cors_rules : alltrue([
+          for method in rule.allowed_methods :
+          contains(["GET", "PUT", "POST", "DELETE", "HEAD"], method)
+        ])
+      ])
+    ])
+    error_message = "CORS allowed_methods solo acepta: GET, PUT, POST, DELETE, HEAD."
   }
 }

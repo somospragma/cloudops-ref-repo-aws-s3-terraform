@@ -21,19 +21,19 @@ data "aws_iam_policy_document" "force_ssl" {
   }
 
   statement {
-    sid       = "DenyInsecureConnections"
-    effect    = "Deny"
-    actions   = ["s3:*"]
+    sid     = "DenyInsecureConnections"
+    effect  = "Deny"
+    actions = ["s3:*"]
     resources = [
       aws_s3_bucket.this[each.key].arn,
       "${aws_s3_bucket.this[each.key].arn}/*"
     ]
-    
+
     principals {
       type        = "*"
       identifiers = ["*"]
     }
-    
+
     condition {
       test     = "Bool"
       variable = "aws:SecureTransport"
@@ -51,19 +51,19 @@ data "aws_iam_policy_document" "bucket_policy" {
   dynamic "statement" {
     for_each = each.value.force_ssl ? [1] : []
     content {
-      sid       = "DenyInsecureConnections"
-      effect    = "Deny"
-      actions   = ["s3:*"]
+      sid     = "DenyInsecureConnections"
+      effect  = "Deny"
+      actions = ["s3:*"]
       resources = [
         aws_s3_bucket.this[each.key].arn,
         "${aws_s3_bucket.this[each.key].arn}/*"
       ]
-      
+
       principals {
         type        = "*"
         identifiers = ["*"]
       }
-      
+
       condition {
         test     = "Bool"
         variable = "aws:SecureTransport"
@@ -76,14 +76,14 @@ data "aws_iam_policy_document" "bucket_policy" {
   dynamic "statement" {
     for_each = each.value.policy_statements
     content {
-      sid       = statement.value.sid
-      effect    = statement.value.effect
-      actions   = statement.value.actions
+      sid     = statement.value.sid
+      effect  = statement.value.effect
+      actions = statement.value.actions
       resources = length(statement.value.resources) > 0 ? statement.value.resources : [
         aws_s3_bucket.this[each.key].arn,
         "${aws_s3_bucket.this[each.key].arn}/*"
       ]
-      
+
       dynamic "principals" {
         for_each = statement.value.principals != null ? [statement.value.principals] : []
         content {
@@ -91,7 +91,7 @@ data "aws_iam_policy_document" "bucket_policy" {
           identifiers = principals.value.identifiers
         }
       }
-      
+
       dynamic "condition" {
         for_each = statement.value.condition
         content {

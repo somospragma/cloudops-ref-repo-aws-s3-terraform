@@ -44,6 +44,12 @@ locals {
     if length(v.lifecycle_rules) > 0
   }
 
+  # Filtro simple: Buckets con CORS configurado
+  buckets_with_cors = {
+    for k, v in var.s3_buckets_config : k => v
+    if length(v.cors_rules) > 0
+  }
+
   # Filtro simple: Buckets con cualquier tipo de notificación (Lambda, SQS, SNS, EventBridge)
   buckets_with_notifications = {
     for k, v in var.s3_buckets_config : k => v

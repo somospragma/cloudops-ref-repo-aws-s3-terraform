@@ -44,6 +44,26 @@ output "bucket_regions" {
   value       = { for k, v in aws_s3_bucket.this : k => v.region }
 }
 
+# CORS Configuration
+output "buckets_with_cors" {
+  description = "Buckets con configuración CORS habilitada"
+  value = {
+    for k, v in local.buckets_with_cors : k => {
+      bucket_name = aws_s3_bucket.this[k].id
+      cors_rules = [
+        for rule in v.cors_rules : {
+          id              = rule.id
+          allowed_methods = rule.allowed_methods
+          allowed_origins = rule.allowed_origins
+          allowed_headers = rule.allowed_headers
+          expose_headers  = rule.expose_headers
+          max_age_seconds = rule.max_age_seconds
+        }
+      ]
+    }
+  }
+}
+
 # Event notifications (Lambda, SQS, SNS)
 output "buckets_with_notifications" {
   description = "Buckets con notificaciones configuradas (Lambda, SQS, SNS, EventBridge)"

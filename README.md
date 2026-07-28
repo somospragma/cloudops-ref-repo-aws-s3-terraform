@@ -42,6 +42,11 @@ Módulo Terraform CORE para la creación y gestión de múltiples buckets S3 con
 │  │  │Management   │ │Logging      │ │Policies     │       │   │
 │  │  └─────────────┘ └─────────────┘ └─────────────┘       │   │
 │  │                                                         │   │
+│  │  ┌─────────────┐                                        │   │
+│  │  │CORS         │                                        │   │
+│  │  │Configuration│                                        │   │
+│  │  └─────────────┘                                        │   │
+│  │                                                         │   │
 │  │  ┌─────────────────────────────────────────────────┐    │   │
 │  │  │         Event Notifications                     │    │   │
 │  │  │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌──────────┐│    │   │
@@ -66,6 +71,7 @@ Módulo Terraform CORE para la creación y gestión de múltiples buckets S3 con
 - ✅ **Intelligent Tiering** automático opcional con configuración avanzada
 - ✅ **Bucket Key optimization** para reducir costos de KMS
 - ✅ **Event Notifications** (Lambda, SQS, SNS, EventBridge) para procesamiento automático de eventos S3
+- ✅ **CORS Configuration** para habilitar acceso cross-origin desde navegadores web
 - ✅ **Tags obligatorios** y additional_tags personalizables por bucket
 - ✅ **Validaciones de seguridad** obligatorias para prevenir configuraciones inseguras
 
@@ -283,6 +289,18 @@ s3_buckets_config = {
     # EventBridge Notifications
     eventbridge_enabled = false  # Habilita envío de TODOS los eventos S3 a EventBridge
     
+    # CORS Configuration
+    cors_rules = [
+      {
+        id              = "allow-webapp"
+        allowed_methods = ["GET", "PUT", "POST"]
+        allowed_origins = ["https://midominio.com"]
+        allowed_headers = ["*"]
+        expose_headers  = ["ETag", "x-amz-request-id"]
+        max_age_seconds = 3600
+      }
+    ]
+    
     # Etiquetas adicionales específicas
     additional_tags = {
       purpose = "document-storage"
@@ -309,6 +327,7 @@ s3_buckets_config = {
 | buckets_with_acceleration | Buckets con Transfer Acceleration | map(string) |
 | buckets_with_logging | Buckets con Access Logging | map(object) |
 | buckets_with_notifications | Buckets con notificaciones (Lambda, SQS, SNS, EventBridge) | map(object) |
+| buckets_with_cors | Buckets con configuración CORS | map(object) |
 | module_summary | Resumen de configuración | object |
 | account_id | ID de cuenta AWS | string |
 | region | Región AWS | string |
@@ -720,6 +739,102 @@ resource "aws_cloudwatch_event_target" "invoke_lambda" {
   arn  = aws_lambda_function.data_processor.arn
 }
 ```
+
+### Ejemplo con CORS Configuration
+```hcl
+module "s3_buckets_core" {
+  source = "git::https://github.com/somospragma/terraform-aws-s3-buckets-core.git?ref=v1.2.0"
+  
+  client      = "pragma"
+  project     = "webapp"
+  environment = "prod"
+  
+  s3_buckets_config = {
+    "frontend-assets" = {
+      encryption_type    = "AES256"
+      versioning_enabled = true
+      
+      # CORS: permitir acceso desde el dominio de la aplicación web
+      cors_rules = [
+        {
+          id              = "allow-webapp"
+          allowed_methods = ["GET", "HEAD"]
+          allowed_origins = ["https://app.midominio.com", "https://www.midominio.com"]
+          allowed_headers = ["*"]
+          expose_headers  = ["ETag", "x-amz-request-id", "x-amz-id-2"]
+          max_age_seconds = 3600
+        }
+      ]
+      
+      additional_tags = {
+        purpose = "frontend-static-assets"
+      }
+    }
+    
+    "upload-api" = {
+      encryption_type    = "AES256"
+      versioning_enabled = true
+      
+      # CORS: múltiples reglas para diferentes orígenes/métodos
+      cors_rules = [
+        {
+          id              = "allow-webapp-uploads"
+          allowed_methods = ["GET", "PUT", "POST"]
+          allowed_origins = ["https://app.midominio.com"]
+          allowed_headers = ["*"]
+          expose_headers  = ["ETag"]
+          max_age_seconds = 3600
+        },
+        {
+          id              = "allow-admin-full"
+          allowed_methods = ["GET", "PUT", "POST", "DELETE", "HEAD"]
+          allowed_origins = ["https://admin.midominio.com"]
+          allowed_headers = ["*"]
+          expose_headers  = ["ETag", "x-amz-request-id"]
+          max_age_seconds = 86400
+        }
+      ]
+      
+      additional_tags = {
+        purpose = "direct-browser-uploads"
+      }
+    }
+  }
+  
+  providers = {
+    aws.project = aws.project
+  }
+}
+```
+
+## CORS Configuration - Detalles y Mejores Prácticas
+
+El módulo soporta configuración CORS (Cross-Origin Resource Sharing) para permitir que aplicaciones web en navegadores accedan directamente a los buckets S3 desde dominios diferentes.
+
+### Parámetros CORS
+
+| Parámetro | Tipo | Requerido | Default | Descripción |
+|-----------|------|-----------|---------|-------------|
+| id | string | No | null | Identificador único de la regla CORS |
+| allowed_methods | list(string) | ✅ | - | Métodos HTTP permitidos: GET, PUT, POST, DELETE, HEAD |
+| allowed_origins | list(string) | ✅ | - | Orígenes (dominios) permitidos. Usa `["*"]` para todos |
+| allowed_headers | list(string) | No | `["*"]` | Headers permitidos en preflight requests |
+| expose_headers | list(string) | No | `[]` | Headers expuestos al navegador en la respuesta |
+| max_age_seconds | number | No | `3600` | Tiempo en segundos que el navegador cachea el preflight |
+
+### Casos de Uso Comunes
+
+1. **Frontend SPA con uploads directos a S3**: Permitir que una aplicación React/Angular/Vue suba archivos directamente al bucket usando presigned URLs.
+2. **CDN de assets estáticos**: Servir fuentes, imágenes o scripts desde S3 a múltiples dominios.
+3. **API con respuestas desde S3**: Permitir lecturas cross-origin para aplicaciones serverless.
+
+### Mejores Prácticas
+
+- **No usar `allowed_origins = ["*"]` en producción**: Restringir siempre a los dominios específicos de tu aplicación.
+- **Métodos mínimos**: Solo habilitar los métodos HTTP que realmente necesitas (GET para lectura, PUT/POST para uploads).
+- **`max_age_seconds` alto para assets estáticos**: Reducir preflight requests usando valores altos (86400 = 24h) para contenido que no cambia.
+- **`expose_headers` explícitos**: Solo exponer los headers que tu aplicación necesita leer (ETag para validación de uploads, x-amz-request-id para debugging).
+- **Múltiples reglas**: Usar reglas separadas para diferentes orígenes con diferentes niveles de acceso (lectura pública vs uploads autenticados).
 
 ## Consideraciones de Seguridad
 - ✅ **Cifrado habilitado por defecto** para todos los buckets
